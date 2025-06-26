@@ -165,3 +165,50 @@ func TestHTTPRoute_SwaggerMethods(t *testing.T) {
 		t.Error("Expected route to be non-nil")
 	}
 }
+
+func TestHTTPRoute_SamePathDifferentMethod(t *testing.T) {
+	mux := http.NewServeMux()
+	swagger := NewHTTP(mux)
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}
+
+	type TestResponse struct {
+		Message string `json:"message"`
+	}
+
+	swagger.GET("/test", handler).
+		Summary("Test endpoint").
+		Description("A test endpoint for swagger generation").
+		Tags("test").
+		Accepts("application/json").
+		Produces("application/json").
+		Returns([]models.ReturnType{
+			{
+				StatusCode: 200,
+				Body:       TestResponse{},
+			},
+		}).
+		QueryParam("id", "User ID", "string", true).
+		HeaderParam("Authorization", "Bearer token", "string", true).
+		PathParam("user_id", "User ID", "string", true)
+
+	swagger.POST("/test", handler).
+		Summary("Test endpoint").
+		Description("A test endpoint for swagger generation").
+		Tags("test").
+		Accepts("application/json").
+		Produces("application/json").
+		Returns([]models.ReturnType{
+			{
+				StatusCode: 200,
+				Body:       TestResponse{},
+			},
+		}).
+		QueryParam("id", "User ID", "string", true).
+		HeaderParam("Authorization", "Bearer token", "string", true).
+		PathParam("user_id", "User ID", "string", true)
+
+	swagger.mux.Handle("/test", swagger.mux)
+}

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/r0bertson/goswag/internal/generator"
@@ -39,8 +40,7 @@ func (s *httpSwagger) Group(relativePath string, handlers ...http.HandlerFunc) m
 func (s *httpSwagger) Handle(httpMethod, relativePath string, handlers ...http.HandlerFunc) models.Swagger {
 	// For net/http, we need to create a custom handler that checks the method
 	handler := createMethodHandler(httpMethod, handlers...)
-	s.mux.Handle(relativePath, handler)
-
+	s.mux.Handle(fmt.Sprintf("%s %s", httpMethod, relativePath), handler)
 	hr := &httpRoute{
 		Route: generator.Route{
 			Path:     relativePath,
