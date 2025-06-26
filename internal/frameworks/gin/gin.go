@@ -3,9 +3,9 @@ package gin
 import (
 	"net/http"
 
-	"github.com/diegoclair/goswag/internal/generator"
-	"github.com/diegoclair/goswag/models"
 	"github.com/gin-gonic/gin"
+	"github.com/r0bertson/goswag/internal/generator"
+	"github.com/r0bertson/goswag/models"
 )
 
 type ginSwagger struct {

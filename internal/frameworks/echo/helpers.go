@@ -3,7 +3,7 @@ package echo
 import (
 	"strings"
 
-	"github.com/diegoclair/goswag/internal/generator"
+	"github.com/r0bertson/goswag/internal/generator"
 )
 
 func getFuncName(name string) string {

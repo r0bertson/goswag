@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/diegoclair/goswag/models"
+	"github.com/r0bertson/goswag/models"
 )
 
 const fileName = "goswag.go"
@@ -236,16 +236,16 @@ func writeIfIsGenericType(s *strings.Builder, data models.ReturnType, respType s
 	hasSlash := strings.Contains(bodyName, "/")
 
 	if isArray && hasSlash {
-		// example: testutil.StructGeneric[[]github.com/diegoclair/goswag/internal/generator/testutil.TestGeneric]
+		// example: testutil.StructGeneric[[]github.com/r0bertson/goswag/internal/generator/testutil.TestGeneric]
 
-		bodyRemovedLastChar := bodyName[:len(bodyName)-1] // testutil.StructGeneric[[]github.com/diegoclair/goswag/internal/generator/testutil.TestGeneric
+		bodyRemovedLastChar := bodyName[:len(bodyName)-1] // testutil.StructGeneric[[]github.com/r0bertson/goswag/internal/generator/testutil.TestGeneric
 
 		// get the last text after '/'
 		str := strings.Split(bodyRemovedLastChar, "/")
 		insideGenericsFullName := str[len(str)-1] // testutil.TestGeneric
 
-		insidePkg := strings.Split(bodyRemovedLastChar, "[[]")[1]                 // github.com/diegoclair/goswag/internal/generator/testutil.TestGeneric
-		removedType := strings.Replace(insidePkg, insideGenericsFullName, "", -1) // github.com/diegoclair/goswag/internal/generator/
+		insidePkg := strings.Split(bodyRemovedLastChar, "[[]")[1]                 // github.com/r0bertson/goswag/internal/generator/testutil.TestGeneric
+		removedType := strings.Replace(insidePkg, insideGenericsFullName, "", -1) // github.com/r0bertson/goswag/internal/generator/
 
 		correctlyResponseType := strings.Replace(bodyName, removedType, "", -1) // remove full package from the struct name
 
@@ -255,16 +255,16 @@ func writeIfIsGenericType(s *strings.Builder, data models.ReturnType, respType s
 	}
 
 	if hasSlash {
-		// example: testutil.StructGeneric[github.com/diegoclair/goswag/internal/generator/testutil.TestGeneric]
+		// example: testutil.StructGeneric[github.com/r0bertson/goswag/internal/generator/testutil.TestGeneric]
 
-		bodyRemovedLastChar := bodyName[:len(bodyName)-1] // testutil.StructGeneric[github.com/diegoclair/goswag/internal/generator/testutil.TestGeneric
+		bodyRemovedLastChar := bodyName[:len(bodyName)-1] // testutil.StructGeneric[github.com/r0bertson/goswag/internal/generator/testutil.TestGeneric
 
 		// get the last text after '/'
 		str := strings.Split(bodyRemovedLastChar, "/")
 		insideGenericsFullName := str[len(str)-1] // testutil.TestGeneric
 
-		insidePkg := strings.Split(bodyRemovedLastChar, "[")[1]                   // github.com/diegoclair/goswag/internal/generator/testutil.TestGeneric
-		removedType := strings.Replace(insidePkg, insideGenericsFullName, "", -1) // github.com/diegoclair/goswag/internal/generator/
+		insidePkg := strings.Split(bodyRemovedLastChar, "[")[1]                   // github.com/r0bertson/goswag/internal/generator/testutil.TestGeneric
+		removedType := strings.Replace(insidePkg, insideGenericsFullName, "", -1) // github.com/r0bertson/goswag/internal/generator/
 
 		correctlyResponseType := strings.Replace(bodyName, removedType, "", -1) // remove full package from the struct name
 

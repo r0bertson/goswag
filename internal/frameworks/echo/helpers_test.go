@@ -3,7 +3,7 @@ package echo
 import (
 	"testing"
 
-	"github.com/diegoclair/goswag/internal/generator"
+	"github.com/r0bertson/goswag/internal/generator"
 )
 
 func Test_getFuncName(t *testing.T) {
@@ -17,7 +17,7 @@ func Test_getFuncName(t *testing.T) {
 	}{
 		{
 			name: "Should return the function name",
-			args: args{name: "github.com/diegoclair/goswag/internal/frameworks/echo.(*Echo).GET-fm"},
+			args: args{name: "github.com/r0bertson/goswag/internal/frameworks/echo.(*Echo).GET-fm"},
 			want: "GET",
 		},
 	}

@@ -3,9 +3,9 @@ package echo
 import (
 	"testing"
 
-	"github.com/diegoclair/goswag/internal/generator"
-	"github.com/diegoclair/goswag/models"
 	"github.com/labstack/echo/v4"
+	"github.com/r0bertson/goswag/internal/generator"
+	"github.com/r0bertson/goswag/models"
 	"github.com/stretchr/testify/assert"
 )
 

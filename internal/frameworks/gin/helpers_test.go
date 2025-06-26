@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/diegoclair/goswag/internal/generator"
 	"github.com/gin-gonic/gin"
+	"github.com/r0bertson/goswag/internal/generator"
 )
 
 func handler1(c *gin.Context) {}

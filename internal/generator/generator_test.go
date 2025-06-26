@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/diegoclair/goswag/internal/generator/testutil"
-	"github.com/diegoclair/goswag/models"
+	"github.com/r0bertson/goswag/internal/generator/testutil"
+	"github.com/r0bertson/goswag/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -440,7 +440,7 @@ func TestWriteReturns(t *testing.T) {
 				},
 			},
 			expectedStringBuilder: "// @Success 200 {object} models.ReturnType\n",
-			expectedPackages:      map[string]bool{"github.com/diegoclair/goswag/models": true},
+			expectedPackages:      map[string]bool{"github.com/r0bertson/goswag/models": true},
 		},
 		{
 			name: "Should do nothing if we do not have status code",
@@ -461,7 +461,7 @@ func TestWriteReturns(t *testing.T) {
 				},
 			},
 			expectedStringBuilder: "// @Failure 400 {object} models.ReturnType\n",
-			expectedPackages:      map[string]bool{"github.com/diegoclair/goswag/models": true},
+			expectedPackages:      map[string]bool{"github.com/r0bertson/goswag/models": true},
 		},
 		{
 			name: "Should add only status code if we do not have body",
@@ -678,7 +678,7 @@ func Test_addPackageToImport(t *testing.T) {
 			},
 			initialPkgs: make(map[string]bool),
 			expectedPkgs: map[string]bool{
-				"github.com/diegoclair/goswag/models": true,
+				"github.com/r0bertson/goswag/models": true,
 			},
 		},
 		{
@@ -688,7 +688,7 @@ func Test_addPackageToImport(t *testing.T) {
 			},
 			initialPkgs: make(map[string]bool),
 			expectedPkgs: map[string]bool{
-				"github.com/diegoclair/goswag/internal/generator/testutil": true,
+				"github.com/r0bertson/goswag/internal/generator/testutil": true,
 			},
 		},
 		{
@@ -713,10 +713,10 @@ func Test_addPackageToImport(t *testing.T) {
 				Body: models.ReturnType{},
 			},
 			initialPkgs: map[string]bool{
-				"github.com/diegoclair/goswag/models": true,
+				"github.com/r0bertson/goswag/models": true,
 			},
 			expectedPkgs: map[string]bool{
-				"github.com/diegoclair/goswag/models": true,
+				"github.com/r0bertson/goswag/models": true,
 			},
 		},
 		{
@@ -726,7 +726,7 @@ func Test_addPackageToImport(t *testing.T) {
 			},
 			initialPkgs: make(map[string]bool),
 			expectedPkgs: map[string]bool{
-				"github.com/diegoclair/goswag/models": true,
+				"github.com/r0bertson/goswag/models": true,
 			},
 		},
 	}

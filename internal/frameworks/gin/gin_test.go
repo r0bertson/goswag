@@ -3,9 +3,9 @@ package gin
 import (
 	"testing"
 
-	"github.com/diegoclair/goswag/internal/generator"
-	"github.com/diegoclair/goswag/models"
 	"github.com/gin-gonic/gin"
+	"github.com/r0bertson/goswag/internal/generator"
+	"github.com/r0bertson/goswag/models"
 	"github.com/stretchr/testify/assert"
 )
 

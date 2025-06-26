@@ -1,9 +1,9 @@
 package goswag
 
 import (
-	ginWrapper "github.com/diegoclair/goswag/internal/frameworks/gin"
-	"github.com/diegoclair/goswag/models"
 	"github.com/gin-gonic/gin"
+	ginWrapper "github.com/r0bertson/goswag/internal/frameworks/gin"
+	"github.com/r0bertson/goswag/models"
 )
 
 type Gin interface {

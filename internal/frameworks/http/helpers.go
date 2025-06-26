@@ -1,20 +1,20 @@
-package gin
+package http
 
 import (
+	"net/http"
 	"path"
 	"reflect"
 	"runtime"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/r0bertson/goswag/internal/generator"
 )
 
-// getFuncName retrieves the name of the function associated with the last handler in the given list of gin.HandlerFunc.
+// getFuncName retrieves the name of the function associated with the last handler in the given list of http.HandlerFunc.
 // It uses the reflect package to obtain the function name from the pointer value of the last handler.
 // The function name is extracted by splitting the full function name string using the dot separator and returning the last element.
 // The retrieved function name is then returned as a string.
-func getFuncName(handlers ...gin.HandlerFunc) string {
+func getFuncName(handlers ...http.HandlerFunc) string {
 	lastHandler := handlers[len(handlers)-1]
 
 	fullFuncName := runtime.FuncForPC(reflect.ValueOf(lastHandler).Pointer()).Name()
@@ -25,10 +25,10 @@ func getFuncName(handlers ...gin.HandlerFunc) string {
 	return funcName
 }
 
-// toGoSwagRoute converts a slice of ginRoute to a slice of generator.Route.
-// It iterates over each ginRoute in the input slice and appends its Route field to the output slice.
+// toGoSwagRoute converts a slice of httpRoute to a slice of generator.Route.
+// It iterates over each httpRoute in the input slice and appends its Route field to the output slice.
 // Returns the converted slice of generator.Route.
-func toGoSwagRoute(from []*ginRoute) []generator.Route {
+func toGoSwagRoute(from []*httpRoute) []generator.Route {
 	var routes []generator.Route
 	for _, r := range from {
 		routes = append(routes, r.Route)
@@ -37,10 +37,10 @@ func toGoSwagRoute(from []*ginRoute) []generator.Route {
 	return routes
 }
 
-// toGoSwagGroup converts a slice of ginGroup objects to a slice of generator.Group.
-// It iterates over each ginGroup and creates a generator.Group object with the corresponding properties.
+// toGoSwagGroup converts a slice of httpGroup objects to a slice of generator.Group.
+// It iterates over each httpGroup and creates a generator.Group object with the corresponding properties.
 // The converted generator.Group objects are then returned as a slice.
-func toGoSwagGroup(from []*ginGroup) []generator.Group {
+func toGoSwagGroup(from []*httpGroup) []generator.Group {
 	var groups []generator.Group
 	for _, g := range from {
 		groups = append(groups, generator.Group{

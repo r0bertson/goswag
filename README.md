@@ -3,23 +3,23 @@
 <p align="center">
  <b>To help you auto generate swagger for your golang APIs</b><br>
  <img src='./assets/gopher-swagger.png' width='350'> <br>
-    <a href="https://github.com/diegoclair/goswag/tags" alt="GitHub tag">
-     <img src="https://img.shields.io/github/tag/diegoclair/goswag.svg" />
+    <a href="https://github.com/r0bertson/goswag/tags" alt="GitHub tag">
+     <img src="https://img.shields.io/github/tag/r0bertson/goswag.svg" />
     </a>
-    <a href='https://coveralls.io/github/diegoclair/goswag?branch=main'>
-     <img src='https://coveralls.io/repos/github/diegoclair/goswag/badge.svg?branch=main' alt='Coverage Status' />
+    <a href='https://coveralls.io/github/r0bertson/goswag?branch=main'>
+     <img src='https://coveralls.io/repos/github/r0bertson/goswag/badge.svg?branch=main' alt='Coverage Status' />
     </a>
-    <a href="https://github.com/diegoclair/goswag/actions">
-     <img src="https://github.com/diegoclair/goswag/actions/workflows/ci.yaml/badge.svg" alt="build status">
+    <a href="https://github.com/r0bertson/goswag/actions">
+     <img src="https://github.com/r0bertson/goswag/actions/workflows/ci.yaml/badge.svg" alt="build status">
     </a>
-    <a href="https://github.com/diegoclair/goswag/contributors" alt="Contributors">
-     <img src="https://img.shields.io/github/contributors/diegoclair/goswag" />
+    <a href="https://github.com/r0bertson/goswag/contributors" alt="Contributors">
+     <img src="https://img.shields.io/github/contributors/r0bertson/goswag" />
     </a>
     <a href="https://opensource.org/licenses/MIT">
      <img src="https://img.shields.io/badge/License-MIT-yellow.svg" />
     </a>
-    <a href='https://goreportcard.com/badge/github.com/diegoclair/goswag'>
-     <img src='https://goreportcard.com/badge/github.com/diegoclair/goswag' alt='Go Report'/>
+    <a href='https://goreportcard.com/badge/github.com/r0bertson/goswag'>
+     <img src='https://goreportcard.com/badge/github.com/r0bertson/goswag' alt='Go Report'/>
     </a>
 </p>
 
@@ -64,7 +64,7 @@ After completing the initial setup, your routes are established without errors a
 - `Accepts`: The default value is *json*. f you wish to incorporate different values, please refer to the list of possible values [here](https://github.com/swaggo/swag#mime-types). 
 - `Produces`: The default value is *json*. To include different values, consult the list of possible options [here](https://github.com/swaggo/swag#mime-types).
 - `Read`: ISpecifies the request body received by your routes.
-- `Returns`: Is an array of ReturnType{}. Your route can have multiples returns (e.g., success, errors e etc). Refer to the [interface reference](https://github.com/diegoclair/goswag/blob/main/models/models.go#L64) for detailed usage information.
+- `Returns`: Is an array of ReturnType{}. Your route can have multiples returns (e.g., success, errors e etc). Refer to the [interface reference](https://github.com/r0bertson/goswag/blob/main/models/models.go#L64) for detailed usage information.
 ```go
 type ReturnType struct {
 	StatusCode int
@@ -171,7 +171,7 @@ func handleLogin() {} //nolint:unused
 ```
 `NewEcho()` and `NewGin()` includes de defaultResponses parameter as optional, then you can pass your default responses only if you want =].
 ## Example of Usage
-To see an example of usage, you can check this [repository](https://github.com/diegoclair/go_boilerplate).
+To see an example of usage, you can check this [repository](https://github.com/r0bertson/go_boilerplate).
 The necessary modifications are located in `transport/rest/server.go` and the `router.go` file inside of each route directory in `transport/rest/routes/`.
 
 ## More features

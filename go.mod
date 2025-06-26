@@ -1,4 +1,4 @@
-module github.com/diegoclair/goswag
+module github.com/r0bertson/goswag
 
 go 1.23.0
 
