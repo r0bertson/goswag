@@ -35,6 +35,7 @@ type Route struct {
 	QueryParams  []Param
 	HeaderParams []Param
 	PathParams   []Param
+	Security     []string
 }
 
 type Group struct {
@@ -146,6 +147,15 @@ func writeRoutes(groupName string, routes []Route, s *strings.Builder, packagesT
 			s.WriteString(fmt.Sprintf("// @Param %s header %s %t \"%s\"\n",
 				param.Name, param.ParamType, param.Required, param.Description),
 			)
+		}
+
+		if len(r.Security) > 0 {
+			for _, scheme := range r.Security {
+				if strings.TrimSpace(scheme) == "" { // skip empty
+					continue
+				}
+				s.WriteString(fmt.Sprintf("// @Security %s\n", scheme))
+			}
 		}
 
 		if r.Returns != nil {

@@ -378,3 +378,8 @@ func (r *ginRoute) PathParam(name, description, paramType string, required bool)
 
 	return r
 }
+
+func (r *ginRoute) Security(schemes ...string) models.Swagger {
+	r.Route.Security = append(r.Route.Security, schemes...)
+	return r
+}

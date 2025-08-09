@@ -77,4 +77,9 @@ type Swagger interface {
 	// The dataType field should be one of the following options:
 	// goswag.StringType, goswag.IntType, goswag.NumberType, goswag.BoolType.
 	PathParam(name, description, dataType string, required bool) Swagger
+
+	// Security adds one or more security requirements to the route.
+	// Each item should match a security scheme name defined in your docs
+	// (e.g., "BearerAuth"), so swag can generate an Authorize button.
+	Security(schemes ...string) Swagger
 }

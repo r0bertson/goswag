@@ -204,6 +204,11 @@ func (r *httpRoute) PathParam(name, description, paramType string, required bool
 	return r
 }
 
+func (r *httpRoute) Security(schemes ...string) models.Swagger {
+	r.Route.Security = append(r.Route.Security, schemes...)
+	return r
+}
+
 // createMethodHandler creates a handler that checks the HTTP method before executing the handlers
 func createMethodHandler(method string, handlers ...http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
