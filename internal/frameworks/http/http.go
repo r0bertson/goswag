@@ -169,6 +169,11 @@ func (r *httpRoute) Read(reads interface{}) models.Swagger {
 	return r
 }
 
+func (r *httpRoute) ReadFieldDescriptions(descriptions map[string]string) models.Swagger {
+	r.Route.ReadFieldDescriptions = descriptions
+	return r
+}
+
 func (r *httpRoute) Returns(returns []models.ReturnType) models.Swagger {
 	r.Route.Returns = returns
 	return r

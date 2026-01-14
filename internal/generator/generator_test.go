@@ -2,6 +2,7 @@ package generator
 
 import (
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -234,7 +235,8 @@ func TestWriteGroup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			var b strings.Builder
-			writeGroup(tt.groups, &b, map[string]bool{})
+			var wrapperStructs strings.Builder
+			writeGroup(tt.groups, &b, map[string]bool{}, &wrapperStructs)
 
 			assert.Equal(t, tt.expectedStringBuilder, b.String())
 		})
@@ -417,7 +419,8 @@ func TestWriteRoutes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			var b strings.Builder
-			writeRoutes(tt.groupName, tt.routes, &b, map[string]bool{})
+			var wrapperStructs strings.Builder
+			writeRoutes(tt.groupName, tt.routes, &b, map[string]bool{}, &wrapperStructs)
 
 			assert.Equal(t, tt.expectedStringBuilder, b.String())
 		})
@@ -479,11 +482,12 @@ func TestWriteReturns(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			var (
-				b    strings.Builder
-				pkgs = make(map[string]bool)
+				b              strings.Builder
+				wrapperStructs strings.Builder
+				pkgs           = make(map[string]bool)
 			)
 
-			writeReturns(tt.returns, &b, pkgs)
+			writeReturns(tt.returns, &b, pkgs, &wrapperStructs)
 
 			assert.Equal(t, tt.expectedStringBuilder, b.String())
 			assert.Equal(t, tt.expectedPackages, pkgs)
@@ -660,6 +664,390 @@ func Test_addDefaultResponses(t *testing.T) {
 			gotRoutes, gotGroups := addDefaultResponses(tt.args.routes, tt.args.groups, tt.args.defaultResponses)
 			assert.Equal(t, tt.expected, gotRoutes)
 			assert.Equal(t, tt.expected, gotGroups[0].Routes)
+		})
+	}
+}
+
+func Test_generateWrapperStruct(t *testing.T) {
+	type TestStruct struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}
+
+	tests := []struct {
+		name                string
+		originalStruct      interface{}
+		fieldDescriptions   map[string]string
+		suffix              string
+		expectedContains    []string
+		expectedNotContains []string
+	}{
+		{
+			name:           "Should generate wrapper struct with field descriptions",
+			originalStruct: TestStruct{},
+			fieldDescriptions: map[string]string{
+				"id":    "Unique identifier",
+				"name":  "User's full name",
+				"email": "User's email address",
+			},
+			suffix: "Request",
+			expectedContains: []string{
+				"type Wrapper",
+				"Request struct",
+				"// Unique identifier",
+				"// User's full name",
+				"// User's email address",
+				"ID string",
+				"Name string",
+				"Email string",
+			},
+			expectedNotContains: []string{},
+		},
+		{
+			name:           "Should generate wrapper struct with partial descriptions",
+			originalStruct: TestStruct{},
+			fieldDescriptions: map[string]string{
+				"name": "User's full name",
+			},
+			suffix: "Response",
+			expectedContains: []string{
+				"type Wrapper",
+				"Response struct",
+				"// User's full name",
+				"ID string",
+				"Name string",
+				"Email string",
+			},
+			expectedNotContains: []string{
+				"// Unique identifier",
+				"// User's email address",
+			},
+		},
+		{
+			name:                "Should generate wrapper struct even without descriptions",
+			originalStruct:      TestStruct{},
+			fieldDescriptions:   map[string]string{},
+			suffix:              "Request",
+			expectedContains:    []string{"type Wrapper", "Request struct", "ID string", "Name string", "Email string"},
+			expectedNotContains: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var wrapperStructs strings.Builder
+			packagesToImport := make(map[string]bool)
+
+			wrapperName := generateWrapperStruct(tt.originalStruct, tt.fieldDescriptions, &wrapperStructs, packagesToImport, tt.suffix)
+
+			result := wrapperStructs.String()
+
+			// Check wrapper name is not empty
+			assert.NotEmpty(t, wrapperName)
+			assert.Contains(t, wrapperName, "Wrapper")
+
+			// Check expected strings are present
+			for _, expected := range tt.expectedContains {
+				assert.Contains(t, result, expected, "Expected to find: %s", expected)
+			}
+
+			// Check unexpected strings are not present
+			for _, notExpected := range tt.expectedNotContains {
+				assert.NotContains(t, result, notExpected, "Should not find: %s", notExpected)
+			}
+		})
+	}
+}
+
+func Test_sanitizeStructName(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "Should replace dots with underscores",
+			input:    "package.StructName",
+			expected: "package_StructName",
+		},
+		{
+			name:     "Should replace slashes with underscores",
+			input:    "github.com/user/package.StructName",
+			expected: "github_com_user_package_StructName",
+		},
+		{
+			name:     "Should replace hyphens with underscores",
+			input:    "my-package.Struct-Name",
+			expected: "my_package_Struct_Name",
+		},
+		{
+			name:     "Should handle simple names",
+			input:    "StructName",
+			expected: "StructName",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizeStructName(tt.input)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}
+
+func Test_writeReturns_withFieldDescriptions(t *testing.T) {
+	type TestResponse struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}
+
+	tests := []struct {
+		name                string
+		returns             []models.ReturnType
+		expectedContains    []string
+		expectedNotContains []string
+	}{
+		{
+			name: "Should use wrapper struct when field descriptions are provided",
+			returns: []models.ReturnType{
+				{
+					StatusCode: 200,
+					Body:       TestResponse{},
+					FieldDescriptions: map[string]string{
+						"id":    "Unique identifier",
+						"name":  "User's name",
+						"email": "User's email",
+					},
+				},
+			},
+			expectedContains: []string{
+				"@Success 200 {object} Wrapper",
+				"type Wrapper",
+				"Response struct",
+				"// Unique identifier",
+				"// User's name",
+				"// User's email",
+			},
+			expectedNotContains: []string{},
+		},
+		{
+			name: "Should use original struct when no field descriptions",
+			returns: []models.ReturnType{
+				{
+					StatusCode: 200,
+					Body:       TestResponse{},
+				},
+			},
+			expectedContains: []string{
+				"@Success 200 {object}",
+			},
+			expectedNotContains: []string{
+				"Wrapper",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var s strings.Builder
+			var wrapperStructs strings.Builder
+			packagesToImport := make(map[string]bool)
+
+			writeReturns(tt.returns, &s, packagesToImport, &wrapperStructs)
+
+			result := s.String() + wrapperStructs.String()
+
+			for _, expected := range tt.expectedContains {
+				assert.Contains(t, result, expected, "Expected to find: %s", expected)
+			}
+
+			for _, notExpected := range tt.expectedNotContains {
+				assert.NotContains(t, result, notExpected, "Should not find: %s", notExpected)
+			}
+		})
+	}
+}
+
+func Test_writeRoutes_withReadFieldDescriptions(t *testing.T) {
+	type TestRequest struct {
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}
+
+	tests := []struct {
+		name                string
+		route               Route
+		expectedContains    []string
+		expectedNotContains []string
+	}{
+		{
+			name: "Should use wrapper struct when ReadFieldDescriptions are provided",
+			route: Route{
+				Path:        "/test",
+				Method:      "POST",
+				Summary:     "Test",
+				Reads:       TestRequest{},
+				ReadFieldDescriptions: map[string]string{
+					"name":  "User's full name",
+					"email": "User's email address",
+				},
+			},
+			expectedContains: []string{
+				"@Param request body Wrapper",
+				"Request",
+				"type Wrapper",
+				"// User's full name",
+				"// User's email address",
+			},
+			expectedNotContains: []string{},
+		},
+		{
+			name: "Should use original struct when no ReadFieldDescriptions",
+			route: Route{
+				Path:   "/test",
+				Method: "POST",
+				Reads:  TestRequest{},
+			},
+			expectedContains: []string{
+				"@Param request body",
+			},
+			expectedNotContains: []string{
+				"Wrapper",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var s strings.Builder
+			var wrapperStructs strings.Builder
+			packagesToImport := make(map[string]bool)
+
+			writeRoutes("", []Route{tt.route}, &s, packagesToImport, &wrapperStructs)
+
+			result := s.String() + wrapperStructs.String()
+
+			for _, expected := range tt.expectedContains {
+				assert.Contains(t, result, expected, "Expected to find: %s", expected)
+			}
+
+			for _, notExpected := range tt.expectedNotContains {
+				assert.NotContains(t, result, notExpected, "Should not find: %s", notExpected)
+			}
+		})
+	}
+}
+
+func Test_generateWrapperStruct_withPointers(t *testing.T) {
+	type TestStructWithPointers struct {
+		RequiredField string  `json:"required_field"`
+		OptionalField *string `json:"optional_field"`
+		NullableField *int    `json:"nullable_field,omitempty"`
+		NoTagField    *bool   `json:"-"`
+	}
+
+	tests := []struct {
+		name                string
+		originalStruct      interface{}
+		fieldDescriptions   map[string]string
+		suffix              string
+		expectedContains    []string
+		expectedNotContains []string
+	}{
+		{
+			name:           "Should add omitempty to pointer fields without it",
+			originalStruct: TestStructWithPointers{},
+			fieldDescriptions: map[string]string{
+				"optional_field": "Optional string field",
+			},
+			suffix: "Request",
+			expectedContains: []string{
+				"RequiredField string",
+				"OptionalField *string",
+				"json:\"optional_field,omitempty\"",
+				"binding:\"omitempty\"",
+				"NullableField *int",
+				"json:\"nullable_field,omitempty\"",
+			},
+			expectedNotContains: []string{
+				"json:\"optional_field\"`", // Should not have json tag without omitempty
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var wrapperStructs strings.Builder
+			packagesToImport := make(map[string]bool)
+
+			wrapperName := generateWrapperStruct(tt.originalStruct, tt.fieldDescriptions, &wrapperStructs, packagesToImport, tt.suffix)
+
+			result := wrapperStructs.String()
+
+			// Check wrapper name is not empty
+			assert.NotEmpty(t, wrapperName)
+			assert.Contains(t, wrapperName, "Wrapper")
+
+			// Check expected strings are present
+			for _, expected := range tt.expectedContains {
+				assert.Contains(t, result, expected, "Expected to find: %s", expected)
+			}
+
+			// Check unexpected strings are not present
+			for _, notExpected := range tt.expectedNotContains {
+				assert.NotContains(t, result, notExpected, "Should not find: %s", notExpected)
+			}
+		})
+	}
+}
+
+func Test_ensurePointerTags(t *testing.T) {
+	tests := []struct {
+		name     string
+		tag      reflect.StructTag
+		expected string
+	}{
+		{
+			name:     "Should add omitempty to JSON tag for pointer field",
+			tag:      reflect.StructTag(`json:"optional_field"`),
+			expected: `json:"optional_field,omitempty"`,
+		},
+		{
+			name:     "Should not modify JSON tag that already has omitempty",
+			tag:      reflect.StructTag(`json:"nullable_field,omitempty"`),
+			expected: `json:"nullable_field,omitempty"`,
+		},
+		{
+			name:     "Should add binding tag with omitempty",
+			tag:      reflect.StructTag(`json:"optional_field"`),
+			expected: `binding:"omitempty"`,
+		},
+		{
+			name:     "Should not modify JSON tag with -",
+			tag:      reflect.StructTag(`json:"-"`),
+			expected: `json:"-"`,
+		},
+		{
+			name:     "Should handle empty JSON tag",
+			tag:      reflect.StructTag(``),
+			expected: `binding:"omitempty"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ensurePointerTags(tt.tag)
+			resultStr := string(result)
+			
+			// Check that expected strings are in the result
+			if strings.Contains(tt.expected, "json:") {
+				assert.Contains(t, resultStr, tt.expected, "Expected JSON tag: %s", tt.expected)
+			}
+			if strings.Contains(tt.expected, "binding:") {
+				assert.Contains(t, resultStr, tt.expected, "Expected binding tag: %s", tt.expected)
+			}
 		})
 	}
 }

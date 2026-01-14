@@ -821,6 +821,44 @@ func TestEchoRoute_Read(t *testing.T) {
 	}
 }
 
+func TestEchoRoute_ReadFieldDescriptions(t *testing.T) {
+	type args struct {
+		descriptions map[string]string
+	}
+	tests := []struct {
+		name string
+		args args
+		want generator.Route
+	}{
+		{
+			name: "Test ReadFieldDescriptions",
+			args: args{
+				descriptions: map[string]string{
+					"name":  "User's full name",
+					"email": "User's email address",
+				},
+			},
+			want: generator.Route{
+				ReadFieldDescriptions: map[string]string{
+					"name":  "User's full name",
+					"email": "User's email address",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &echoRoute{
+				Route: generator.Route{},
+			}
+			got := r.ReadFieldDescriptions(tt.args.descriptions)
+			assert.NotNil(t, got)
+
+			assert.Equal(t, tt.want.ReadFieldDescriptions, r.Route.ReadFieldDescriptions)
+		})
+	}
+}
+
 func TestEchoRoute_Returns(t *testing.T) {
 	type args struct {
 		returns []models.ReturnType

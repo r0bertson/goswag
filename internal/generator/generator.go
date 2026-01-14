@@ -22,20 +22,23 @@ type Param struct {
 }
 
 type Route struct {
-	Path         string
-	Method       string
-	FuncName     string // it will be used to generate the function on the goswag.go file
-	Summary      string
-	Description  string
-	Tags         []string
-	Accepts      []string
-	Produces     []string
-	Reads        interface{}
-	Returns      []models.ReturnType // example: map[statusCode]responseBody
-	QueryParams  []Param
-	HeaderParams []Param
-	PathParams   []Param
-	Security     []string
+	Path        string
+	Method      string
+	FuncName    string // it will be used to generate the function on the goswag.go file
+	Summary     string
+	Description string
+	Tags        []string
+	Accepts     []string
+	Produces    []string
+	Reads       interface{}
+	// ReadFieldDescriptions is used to add descriptions to struct fields in the request body.
+	// The key should be the JSON field name (e.g., "id", "name", "email").
+	ReadFieldDescriptions map[string]string
+	Returns               []models.ReturnType // example: map[statusCode]responseBody
+	QueryParams           []Param
+	HeaderParams          []Param
+	PathParams            []Param
+	Security              []string
 }
 
 type Group struct {
@@ -48,6 +51,7 @@ func GenerateSwagger(routes []Route, groups []Group, defaultResponses []models.R
 	var (
 		packagesToImport = make(map[string]bool)
 		fullFileContent  = &strings.Builder{}
+		wrapperStructs   = &strings.Builder{} // Store wrapper structs with descriptions
 	)
 
 	log.Printf("Generating %s file...", fileName)
@@ -55,11 +59,11 @@ func GenerateSwagger(routes []Route, groups []Group, defaultResponses []models.R
 	routes, groups = addDefaultResponses(routes, groups, defaultResponses)
 
 	if routes != nil {
-		writeRoutes("", routes, fullFileContent, packagesToImport)
+		writeRoutes("", routes, fullFileContent, packagesToImport, wrapperStructs)
 	}
 
 	if groups != nil {
-		writeGroup(groups, fullFileContent, packagesToImport)
+		writeGroup(groups, fullFileContent, packagesToImport, wrapperStructs)
 	}
 
 	f, err := os.Create(fmt.Sprintf("./%s", fileName))
@@ -68,7 +72,8 @@ func GenerateSwagger(routes []Route, groups []Group, defaultResponses []models.R
 	}
 	defer f.Close()
 
-	writeFileContent(f, fullFileContent.String(), packagesToImport)
+	// Write wrapper structs first, then the rest of the content
+	writeFileContent(f, wrapperStructs.String()+fullFileContent.String(), packagesToImport)
 
 	log.Printf("%s file generated successfully!", fileName)
 }
@@ -106,7 +111,7 @@ func writeFileContent(file io.Writer, content string, packagesToImport map[strin
 	fmt.Fprintf(file, "%s", content)
 }
 
-func writeRoutes(groupName string, routes []Route, s *strings.Builder, packagesToImport map[string]bool) {
+func writeRoutes(groupName string, routes []Route, s *strings.Builder, packagesToImport map[string]bool, wrapperStructs *strings.Builder) {
 	for _, r := range routes {
 		addLineIfNotEmpty(s, r.Summary, "// @Summary %s\n")
 		addTextIfNotEmptyOrDefault(s, r.Summary, "// @Description %s\n", r.Description)
@@ -128,7 +133,13 @@ func writeRoutes(groupName string, routes []Route, s *strings.Builder, packagesT
 		}
 
 		if r.Reads != nil {
-			s.WriteString(fmt.Sprintf("// @Param request body %s true \"Request\"\n", getStructAndPackageName(r.Reads)))
+			structName := getStructAndPackageName(r.Reads)
+			// If field descriptions are provided, generate a wrapper struct
+			if len(r.ReadFieldDescriptions) > 0 {
+				wrapperName := generateWrapperStruct(r.Reads, r.ReadFieldDescriptions, wrapperStructs, packagesToImport, "Request")
+				structName = wrapperName
+			}
+			s.WriteString(fmt.Sprintf("// @Param request body %s true \"Request\"\n", structName))
 		}
 
 		for _, param := range r.PathParams {
@@ -159,7 +170,7 @@ func writeRoutes(groupName string, routes []Route, s *strings.Builder, packagesT
 		}
 
 		if r.Returns != nil {
-			writeReturns(r.Returns, s, packagesToImport)
+			writeReturns(r.Returns, s, packagesToImport, wrapperStructs)
 		}
 
 		if r.Path != "" {
@@ -174,7 +185,7 @@ func writeRoutes(groupName string, routes []Route, s *strings.Builder, packagesT
 	}
 }
 
-func writeReturns(returns []models.ReturnType, s *strings.Builder, packagesToImport map[string]bool) {
+func writeReturns(returns []models.ReturnType, s *strings.Builder, packagesToImport map[string]bool, wrapperStructs *strings.Builder) {
 	for _, data := range returns {
 		if data.StatusCode == 0 {
 			continue
@@ -194,9 +205,16 @@ func writeReturns(returns []models.ReturnType, s *strings.Builder, packagesToImp
 
 		var isGeneric bool = writeIfIsGenericType(s, data, respType)
 
+		structName := getStructAndPackageName(data.Body)
+		// If field descriptions are provided, generate a wrapper struct
+		if len(data.FieldDescriptions) > 0 && !isGeneric {
+			wrapperName := generateWrapperStruct(data.Body, data.FieldDescriptions, wrapperStructs, packagesToImport, "Response")
+			structName = wrapperName
+		}
+
 		if !isGeneric {
 			// if it is not a generic type, we can write the response normally
-			s.WriteString(fmt.Sprintf("// %s %d {object} %s", respType, data.StatusCode, getStructAndPackageName(data.Body)))
+			s.WriteString(fmt.Sprintf("// %s %d {object} %s", respType, data.StatusCode, structName))
 		}
 
 		addPackageToImport(data, packagesToImport)
@@ -206,12 +224,12 @@ func writeReturns(returns []models.ReturnType, s *strings.Builder, packagesToImp
 	}
 }
 
-func writeGroup(groups []Group, s *strings.Builder, packagesToImport map[string]bool) {
+func writeGroup(groups []Group, s *strings.Builder, packagesToImport map[string]bool, wrapperStructs *strings.Builder) {
 	for _, g := range groups {
-		writeRoutes(g.GroupName, g.Routes, s, packagesToImport)
+		writeRoutes(g.GroupName, g.Routes, s, packagesToImport, wrapperStructs)
 
 		if g.Groups != nil {
-			writeGroup(g.Groups, s, packagesToImport)
+			writeGroup(g.Groups, s, packagesToImport, wrapperStructs)
 		}
 	}
 }
@@ -308,6 +326,157 @@ func handleOverrideStructFields(s *strings.Builder, data models.ReturnType) {
 			i++
 		}
 	}
+}
+
+// generateWrapperStruct generates a wrapper struct with field descriptions as comments.
+// It returns the name of the generated wrapper struct.
+func generateWrapperStruct(originalStruct interface{}, fieldDescriptions map[string]string, wrapperStructs *strings.Builder, packagesToImport map[string]bool, suffix string) string {
+	t := reflect.TypeOf(originalStruct)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	// Generate a unique wrapper struct name
+	originalName := t.Name()
+	if t.PkgPath() != "" {
+		// Extract package name from full path
+		parts := strings.Split(t.PkgPath(), "/")
+		pkgName := parts[len(parts)-1]
+		originalName = pkgName + "." + originalName
+	}
+
+	// Create a unique wrapper name
+	wrapperName := fmt.Sprintf("Wrapper%s%s", sanitizeStructName(originalName), suffix)
+
+	// Check if we've already generated this wrapper (avoid duplicates)
+	// For now, we'll generate it each time - could optimize later with a map
+
+	// Write the wrapper struct definition
+	wrapperStructs.WriteString(fmt.Sprintf("// %s is a wrapper struct with field descriptions\n", wrapperName))
+	wrapperStructs.WriteString(fmt.Sprintf("type %s struct {\n", wrapperName))
+
+	// Iterate through struct fields
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		jsonTag := field.Tag.Get("json")
+		jsonName := field.Name
+		isPointer := field.Type.Kind() == reflect.Ptr
+
+		// Extract JSON field name from tag
+		if jsonTag != "" && jsonTag != "-" {
+			parts := strings.Split(jsonTag, ",")
+			if parts[0] != "" {
+				jsonName = parts[0]
+			}
+		}
+
+		// Add description comment if available
+		if desc, ok := fieldDescriptions[jsonName]; ok {
+			wrapperStructs.WriteString(fmt.Sprintf("\t// %s\n", desc))
+		}
+
+		// Handle pointer fields - ensure they're marked as optional/nullable
+		fieldType := field.Type.String()
+		updatedTag := field.Tag
+
+		if isPointer {
+			// For pointer fields, ensure omitempty is in JSON tag and add binding tag for swag
+			updatedTag = ensurePointerTags(field.Tag)
+		}
+
+		// Write field definition
+		wrapperStructs.WriteString(fmt.Sprintf("\t%s %s `%s`\n", field.Name, fieldType, updatedTag))
+	}
+
+	wrapperStructs.WriteString("}\n\n")
+
+	// Add package to imports
+	if t.PkgPath() != "" {
+		packagesToImport[t.PkgPath()] = true
+	}
+
+	return wrapperName
+}
+
+// ensurePointerTags ensures pointer fields have proper tags for Swagger to recognize them as optional/nullable
+func ensurePointerTags(tag reflect.StructTag) reflect.StructTag {
+	jsonTag := tag.Get("json")
+	bindingTag := tag.Get("binding")
+
+	// Parse JSON tag
+	jsonParts := strings.Split(jsonTag, ",")
+	hasOmitempty := false
+	for _, part := range jsonParts {
+		if strings.TrimSpace(part) == "omitempty" {
+			hasOmitempty = true
+			break
+		}
+	}
+
+	// Add omitempty to JSON tag if not present and tag is not empty
+	if !hasOmitempty && jsonTag != "" && jsonTag != "-" {
+		if len(jsonParts) == 1 && jsonParts[0] == jsonTag {
+			jsonTag = jsonTag + ",omitempty"
+		} else {
+			jsonTag = strings.Join(append(jsonParts, "omitempty"), ",")
+		}
+	}
+
+	// Ensure binding tag has omitempty for swag
+	if bindingTag == "" {
+		bindingTag = "omitempty"
+	} else if !strings.Contains(bindingTag, "omitempty") {
+		bindingTag = bindingTag + ",omitempty"
+	}
+
+	// Reconstruct the tag string
+	tagStr := string(tag)
+
+	// Replace json tag if we modified it
+	if jsonTag != tag.Get("json") {
+		// Extract the tag name (e.g., `json:"..."`)
+		if strings.Contains(tagStr, `json:"`) {
+			// Replace the json tag value
+			start := strings.Index(tagStr, `json:"`)
+			end := strings.Index(tagStr[start+6:], `"`)
+			if end != -1 {
+				end = start + 6 + end + 1
+				oldJsonTag := tagStr[start:end]
+				newJsonTag := fmt.Sprintf(`json:"%s"`, jsonTag)
+				tagStr = strings.Replace(tagStr, oldJsonTag, newJsonTag, 1)
+			}
+		}
+	}
+
+	// Add or update binding tag
+	if strings.Contains(tagStr, `binding:"`) {
+		// Replace existing binding tag
+		start := strings.Index(tagStr, `binding:"`)
+		end := strings.Index(tagStr[start+9:], `"`)
+		if end != -1 {
+			end = start + 9 + end + 1
+			oldBindingTag := tagStr[start:end]
+			newBindingTag := fmt.Sprintf(`binding:"%s"`, bindingTag)
+			tagStr = strings.Replace(tagStr, oldBindingTag, newBindingTag, 1)
+		}
+	} else {
+		// Add binding tag
+		if tagStr != "" && !strings.HasSuffix(tagStr, "`") {
+			tagStr = tagStr + " "
+		}
+		tagStr = tagStr + fmt.Sprintf(`binding:"%s"`, bindingTag)
+	}
+
+	return reflect.StructTag(tagStr)
+}
+
+// sanitizeStructName removes special characters to create a valid Go identifier
+func sanitizeStructName(name string) string {
+	// Replace dots and other invalid characters with underscores
+	result := strings.ReplaceAll(name, ".", "_")
+	result = strings.ReplaceAll(result, "-", "_")
+	result = strings.ReplaceAll(result, "/", "_")
+	return result
 }
 
 func getStructAndPackageName(body any) string {

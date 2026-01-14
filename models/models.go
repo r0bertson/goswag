@@ -5,6 +5,10 @@ type ReturnType struct {
 	Body       interface{}
 	// example: map[jsonFieldName]fieldType{}
 	OverrideStructFields map[string]interface{}
+	// FieldDescriptions is used to add descriptions to struct fields in the response body.
+	// The key should be the JSON field name (e.g., "id", "name", "email").
+	// Example: map[string]string{"id": "Unique identifier", "name": "User's full name"}
+	FieldDescriptions map[string]string
 }
 
 type Swagger interface {
@@ -29,6 +33,11 @@ type Swagger interface {
 
 	// Read is used to define the request body of the route.
 	Read(data interface{}) Swagger
+
+	// ReadFieldDescriptions is used to add descriptions to struct fields in the request body.
+	// The key should be the JSON field name (e.g., "id", "name", "email").
+	// Example: ReadFieldDescriptions(map[string]string{"name": "User's full name", "email": "User's email address"})
+	ReadFieldDescriptions(descriptions map[string]string) Swagger
 
 	// Returns is used to define the return of the route.
 	// The first parameter is the status code.

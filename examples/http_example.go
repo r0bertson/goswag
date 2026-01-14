@@ -17,8 +17,11 @@ type User struct {
 
 // CreateUserRequest represents the request body for creating a user
 type CreateUserRequest struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	Name     string  `json:"name"`
+	Email    string  `json:"email"`
+	Phone    *string `json:"phone"`               // Optional field (pointer)
+	Age      *int    `json:"age,omitempty"`       // Optional field with omitempty
+	IsActive *bool   `json:"is_active,omitempty"` // Optional boolean field
 }
 
 // ErrorResponse represents an error response
@@ -28,9 +31,6 @@ type ErrorResponse struct {
 }
 
 func main() {
-	// Test swagger generation first
-	testSwaggerGeneration()
-
 	// Create a new HTTP mux
 	mux := http.NewServeMux()
 
@@ -69,10 +69,21 @@ func main() {
 		Accepts("application/json").
 		Produces("application/json").
 		Read(CreateUserRequest{}).
+		// Add field descriptions for request body properties
+		ReadFieldDescriptions(map[string]string{
+			"name":  "The full name of the user",
+			"email": "The user's email address, must be a valid email format",
+		}).
 		Returns([]models.ReturnType{
 			{
 				StatusCode: http.StatusCreated,
 				Body:       User{},
+				// Add field descriptions for response body properties
+				FieldDescriptions: map[string]string{
+					"id":    "Unique identifier for the user",
+					"name":  "The full name of the user",
+					"email": "The user's email address",
+				},
 			},
 		})
 

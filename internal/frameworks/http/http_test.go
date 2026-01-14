@@ -212,3 +212,89 @@ func TestHTTPRoute_SamePathDifferentMethod(t *testing.T) {
 
 	swagger.mux.Handle("/test", swagger.mux)
 }
+
+func TestHTTPRoute_ReadFieldDescriptions(t *testing.T) {
+	mux := http.NewServeMux()
+	swagger := NewHTTP(mux)
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}
+
+	type CreateUserRequest struct {
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}
+
+	route := swagger.POST("/users", handler).
+		Read(CreateUserRequest{}).
+		ReadFieldDescriptions(map[string]string{
+			"name":  "The full name of the user",
+			"email": "The user's email address",
+		})
+
+	if route == nil {
+		t.Error("Expected route to be non-nil")
+	}
+
+	// Verify that ReadFieldDescriptions was set
+	httpRoute := route.(*httpRoute)
+	if httpRoute.Route.ReadFieldDescriptions == nil {
+		t.Error("Expected ReadFieldDescriptions to be set")
+	}
+
+	if httpRoute.Route.ReadFieldDescriptions["name"] != "The full name of the user" {
+		t.Errorf("Expected name description to be 'The full name of the user', got '%s'", httpRoute.Route.ReadFieldDescriptions["name"])
+	}
+
+	if httpRoute.Route.ReadFieldDescriptions["email"] != "The user's email address" {
+		t.Errorf("Expected email description to be 'The user's email address', got '%s'", httpRoute.Route.ReadFieldDescriptions["email"])
+	}
+}
+
+func TestHTTPRoute_ReturnsWithFieldDescriptions(t *testing.T) {
+	mux := http.NewServeMux()
+	swagger := NewHTTP(mux)
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}
+
+	type UserResponse struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}
+
+	route := swagger.GET("/users/{id}", handler).
+		Returns([]models.ReturnType{
+			{
+				StatusCode: 200,
+				Body:       UserResponse{},
+				FieldDescriptions: map[string]string{
+					"id":    "Unique identifier for the user",
+					"name":  "The full name of the user",
+					"email": "The user's email address",
+				},
+			},
+		})
+
+	if route == nil {
+		t.Error("Expected route to be non-nil")
+	}
+
+	// Verify that FieldDescriptions was set
+	httpRoute := route.(*httpRoute)
+	if len(httpRoute.Route.Returns) == 0 {
+		t.Error("Expected Returns to be set")
+	}
+
+	returnType := httpRoute.Route.Returns[0]
+	if returnType.FieldDescriptions == nil {
+		t.Error("Expected FieldDescriptions to be set")
+	}
+
+	if returnType.FieldDescriptions["id"] != "Unique identifier for the user" {
+		t.Errorf("Expected id description to be 'Unique identifier for the user', got '%s'", returnType.FieldDescriptions["id"])
+	}
+}

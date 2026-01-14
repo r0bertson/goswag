@@ -308,6 +308,11 @@ func (r *echoRoute) Read(value interface{}) models.Swagger {
 	return r
 }
 
+func (r *echoRoute) ReadFieldDescriptions(descriptions map[string]string) models.Swagger {
+	r.Route.ReadFieldDescriptions = descriptions
+	return r
+}
+
 func (r *echoRoute) Returns(returns []models.ReturnType) models.Swagger {
 	r.Route.Returns = returns
 	return r

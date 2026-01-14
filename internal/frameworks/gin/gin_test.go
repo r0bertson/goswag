@@ -668,12 +668,42 @@ func TestGinRoute_Read(t *testing.T) {
 	})
 }
 
+func TestGinRoute_ReadFieldDescriptions(t *testing.T) {
+	t.Run("should add read field descriptions", func(t *testing.T) {
+		g := &ginRoute{}
+		descriptions := map[string]string{
+			"name":  "User's full name",
+			"email": "User's email address",
+		}
+		got := g.ReadFieldDescriptions(descriptions)
+		assert.NotNil(t, got)
+		assert.Equal(t, descriptions, g.Route.ReadFieldDescriptions)
+	})
+}
+
 func TestGinRoute_Returns(t *testing.T) {
 	t.Run("should add returns", func(t *testing.T) {
 		g := &ginRoute{}
 		got := g.Returns([]models.ReturnType{})
 		assert.NotNil(t, got)
 		assert.Equal(t, []models.ReturnType{}, g.Route.Returns)
+	})
+
+	t.Run("should add returns with field descriptions", func(t *testing.T) {
+		g := &ginRoute{}
+		returns := []models.ReturnType{
+			{
+				StatusCode: 200,
+				Body:       struct{ Name string }{},
+				FieldDescriptions: map[string]string{
+					"name": "User's name",
+				},
+			},
+		}
+		got := g.Returns(returns)
+		assert.NotNil(t, got)
+		assert.Equal(t, returns, g.Route.Returns)
+		assert.Equal(t, "User's name", g.Route.Returns[0].FieldDescriptions["name"])
 	})
 }
 
