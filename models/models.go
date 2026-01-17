@@ -91,4 +91,25 @@ type Swagger interface {
 	// Each item should match a security scheme name defined in your docs
 	// (e.g., "BearerAuth"), so swag can generate an Authorize button.
 	Security(schemes ...string) Swagger
+
+	// QueryParamWithOptions defines a query parameter with extended options.
+	// Use ParamOptions to specify default values, examples, validation constraints, etc.
+	QueryParamWithOptions(name, description, paramType string, required bool, opts *ParamOptions) Swagger
+
+	// HeaderParamWithOptions defines a header parameter with extended options.
+	// Use ParamOptions to specify default values, examples, validation constraints, etc.
+	HeaderParamWithOptions(name, description, paramType string, required bool, opts *ParamOptions) Swagger
+
+	// PathParamWithOptions defines a path parameter with extended options.
+	// Use ParamOptions to specify default values, examples, validation constraints, etc.
+	// Note: Path parameters are always required in Swagger 2.0.
+	PathParamWithOptions(name, description, paramType string, required bool, opts *ParamOptions) Swagger
+
+	// FormDataParam defines a form data parameter (for multipart/form-data or application/x-www-form-urlencoded).
+	// Use ParamOptions to specify extended options like default values, examples, etc.
+	FormDataParam(name, description, paramType string, required bool, opts *ParamOptions) Swagger
+
+	// FileParam defines a file upload parameter (for multipart/form-data).
+	// This is a convenience method for file uploads.
+	FileParam(name, description string, required bool) Swagger
 }

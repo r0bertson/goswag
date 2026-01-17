@@ -355,3 +355,110 @@ func (r *echoRoute) Security(schemes ...string) models.Swagger {
 	r.Route.Security = append(r.Route.Security, schemes...)
 	return r
 }
+
+func (r *echoRoute) QueryParamWithOptions(name, description, paramType string, required bool, opts *models.ParamOptions) models.Swagger {
+	param := generator.Param{
+		Name:        name,
+		Description: description,
+		ParamType:   paramType,
+		Required:    required,
+	}
+	if opts != nil {
+		param.Default = opts.Default
+		param.Example = opts.Example
+		param.CollectionFormat = opts.CollectionFormat
+		param.AllowEmptyValue = opts.AllowEmptyValue
+		param.Minimum = opts.Minimum
+		param.Maximum = opts.Maximum
+		param.MinLength = opts.MinLength
+		param.MaxLength = opts.MaxLength
+		param.Pattern = opts.Pattern
+		param.Enum = opts.Enum
+		param.Format = opts.Format
+	}
+	r.Route.QueryParams = append(r.Route.QueryParams, param)
+	return r
+}
+
+func (r *echoRoute) HeaderParamWithOptions(name, description, paramType string, required bool, opts *models.ParamOptions) models.Swagger {
+	param := generator.Param{
+		Name:        name,
+		Description: description,
+		ParamType:   paramType,
+		Required:    required,
+	}
+	if opts != nil {
+		param.Default = opts.Default
+		param.Example = opts.Example
+		param.CollectionFormat = opts.CollectionFormat
+		param.AllowEmptyValue = opts.AllowEmptyValue
+		param.Minimum = opts.Minimum
+		param.Maximum = opts.Maximum
+		param.MinLength = opts.MinLength
+		param.MaxLength = opts.MaxLength
+		param.Pattern = opts.Pattern
+		param.Enum = opts.Enum
+		param.Format = opts.Format
+	}
+	r.Route.HeaderParams = append(r.Route.HeaderParams, param)
+	return r
+}
+
+func (r *echoRoute) PathParamWithOptions(name, description, paramType string, required bool, opts *models.ParamOptions) models.Swagger {
+	param := generator.Param{
+		Name:        name,
+		Description: description,
+		ParamType:   paramType,
+		Required:    true, // Path params are always required in Swagger 2.0
+	}
+	if opts != nil {
+		param.Default = opts.Default
+		param.Example = opts.Example
+		param.CollectionFormat = opts.CollectionFormat
+		param.AllowEmptyValue = opts.AllowEmptyValue
+		param.Minimum = opts.Minimum
+		param.Maximum = opts.Maximum
+		param.MinLength = opts.MinLength
+		param.MaxLength = opts.MaxLength
+		param.Pattern = opts.Pattern
+		param.Enum = opts.Enum
+		param.Format = opts.Format
+	}
+	r.Route.PathParams = append(r.Route.PathParams, param)
+	return r
+}
+
+func (r *echoRoute) FormDataParam(name, description, paramType string, required bool, opts *models.ParamOptions) models.Swagger {
+	param := generator.Param{
+		Name:        name,
+		Description: description,
+		ParamType:   paramType,
+		Required:    required,
+	}
+	if opts != nil {
+		param.Default = opts.Default
+		param.Example = opts.Example
+		param.CollectionFormat = opts.CollectionFormat
+		param.AllowEmptyValue = opts.AllowEmptyValue
+		param.Minimum = opts.Minimum
+		param.Maximum = opts.Maximum
+		param.MinLength = opts.MinLength
+		param.MaxLength = opts.MaxLength
+		param.Pattern = opts.Pattern
+		param.Enum = opts.Enum
+		param.Format = opts.Format
+	}
+	r.Route.FormDataParams = append(r.Route.FormDataParams, param)
+	return r
+}
+
+func (r *echoRoute) FileParam(name, description string, required bool) models.Swagger {
+	param := generator.Param{
+		Name:        name,
+		Description: description,
+		ParamType:   "file",
+		Required:    required,
+	}
+	r.Route.FormDataParams = append(r.Route.FormDataParams, param)
+	return r
+}

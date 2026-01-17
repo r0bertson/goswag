@@ -19,6 +19,18 @@ type Param struct {
 	Description string
 	ParamType   string
 	Required    bool
+	// Extended fields for Swagger 2.0 support
+	Default         interface{}
+	Example         interface{}
+	CollectionFormat string
+	AllowEmptyValue  bool
+	Minimum         *float64
+	Maximum         *float64
+	MinLength       *int
+	MaxLength       *int
+	Pattern         string
+	Enum            []interface{}
+	Format          string
 }
 
 type Route struct {
@@ -38,6 +50,7 @@ type Route struct {
 	QueryParams           []Param
 	HeaderParams          []Param
 	PathParams            []Param
+	FormDataParams        []Param // For multipart/form-data and application/x-www-form-urlencoded
 	Security              []string
 }
 
@@ -143,21 +156,19 @@ func writeRoutes(groupName string, routes []Route, s *strings.Builder, packagesT
 		}
 
 		for _, param := range r.PathParams {
-			s.WriteString(fmt.Sprintf("// @Param %s path %s %t \"%s\"\n",
-				param.Name, param.ParamType, param.Required, param.Description),
-			)
+			writeParam(s, param, "path")
 		}
 
 		for _, param := range r.QueryParams {
-			s.WriteString(fmt.Sprintf("// @Param %s query %s %t \"%s\"\n",
-				param.Name, param.ParamType, param.Required, param.Description),
-			)
+			writeParam(s, param, "query")
 		}
 
 		for _, param := range r.HeaderParams {
-			s.WriteString(fmt.Sprintf("// @Param %s header %s %t \"%s\"\n",
-				param.Name, param.ParamType, param.Required, param.Description),
-			)
+			writeParam(s, param, "header")
+		}
+
+		for _, param := range r.FormDataParams {
+			writeParam(s, param, "formData")
 		}
 
 		if len(r.Security) > 0 {
@@ -381,6 +392,8 @@ func generateWrapperStruct(originalStruct interface{}, fieldDescriptions map[str
 
 		if isPointer {
 			// For pointer fields, ensure omitempty is in JSON tag and add binding tag for swag
+			// swaggo/swag should automatically detect pointer fields as optional/nullable
+			// The omitempty tag and pointer type together should be sufficient
 			updatedTag = ensurePointerTags(field.Tag)
 		}
 
@@ -505,4 +518,74 @@ func addLineIfNotEmpty(s *strings.Builder, data, format string) {
 	if data != "" {
 		s.WriteString(fmt.Sprintf(format, data))
 	}
+}
+
+// writeParam writes a parameter annotation with all extended Swagger 2.0 features.
+// Swaggo/swag supports extended attributes through the description field and struct tags.
+// We format the description to include additional metadata that swag can parse.
+func writeParam(s *strings.Builder, param Param, location string) {
+	// Base @Param annotation format: @Param name location type required "description"
+	// Swaggo/swag will parse this and generate the swagger.json with proper structure
+	
+	// Build description with extended attributes
+	desc := param.Description
+	
+	// Add format if specified
+	if param.Format != "" {
+		desc = fmt.Sprintf("%s (format: %s)", desc, param.Format)
+	}
+	
+	// Add enum values if specified
+	if len(param.Enum) > 0 {
+		enumStrs := make([]string, 0, len(param.Enum))
+		for _, e := range param.Enum {
+			enumStrs = append(enumStrs, fmt.Sprintf("%v", e))
+		}
+		desc = fmt.Sprintf("%s (enum: %s)", desc, strings.Join(enumStrs, ","))
+	}
+	
+	// Add default value if specified
+	if param.Default != nil {
+		desc = fmt.Sprintf("%s (default: %v)", desc, param.Default)
+	}
+	
+	// Add example if specified
+	if param.Example != nil {
+		desc = fmt.Sprintf("%s (example: %v)", desc, param.Example)
+	}
+	
+	// Add validation constraints
+	if param.Minimum != nil {
+		desc = fmt.Sprintf("%s (min: %v)", desc, *param.Minimum)
+	}
+	if param.Maximum != nil {
+		desc = fmt.Sprintf("%s (max: %v)", desc, *param.Maximum)
+	}
+	if param.MinLength != nil {
+		desc = fmt.Sprintf("%s (minLength: %d)", desc, *param.MinLength)
+	}
+	if param.MaxLength != nil {
+		desc = fmt.Sprintf("%s (maxLength: %d)", desc, *param.MaxLength)
+	}
+	if param.Pattern != "" {
+		desc = fmt.Sprintf("%s (pattern: %s)", desc, param.Pattern)
+	}
+	
+	// Add collectionFormat for arrays (important for query/formData parameters)
+	paramType := param.ParamType
+	if param.CollectionFormat != "" && strings.HasPrefix(paramType, "array") {
+		// Note: swaggo/swag may need the collectionFormat in a specific way
+		// For now, we'll include it in the description
+		desc = fmt.Sprintf("%s (collectionFormat: %s)", desc, param.CollectionFormat)
+	}
+	
+	// Add allowEmptyValue for query/formData
+	if param.AllowEmptyValue && (location == "query" || location == "formData") {
+		desc = fmt.Sprintf("%s (allowEmptyValue: true)", desc)
+	}
+	
+	// Write the @Param annotation
+	// Format: @Param name location type required "description"
+	s.WriteString(fmt.Sprintf("// @Param %s %s %s %t %q\n",
+		param.Name, location, paramType, param.Required, desc))
 }

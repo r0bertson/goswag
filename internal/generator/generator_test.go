@@ -1127,3 +1127,329 @@ func Test_addPackageToImport(t *testing.T) {
 		})
 	}
 }
+
+func TestWriteParam(t *testing.T) {
+	tests := []struct {
+		name     string
+		param    Param
+		location string
+		expected string
+	}{
+		{
+			name: "Should write basic parameter",
+			param: Param{
+				Name:        "id",
+				Description: "User ID",
+				ParamType:   "string",
+				Required:    true,
+			},
+			location: "path",
+			expected: "// @Param id path string true \"User ID\"\n",
+		},
+		{
+			name: "Should write parameter with default value",
+			param: Param{
+				Name:        "status",
+				Description: "Filter status",
+				ParamType:   "string",
+				Required:    false,
+				Default:     "active",
+			},
+			location: "query",
+			expected: "// @Param status query string false \"Filter status (default: active)\"\n",
+		},
+		{
+			name: "Should write parameter with example",
+			param: Param{
+				Name:        "email",
+				Description: "User email",
+				ParamType:   "string",
+				Required:    true,
+				Example:     "user@example.com",
+			},
+			location: "query",
+			expected: "// @Param email query string true \"User email (example: user@example.com)\"\n",
+		},
+		{
+			name: "Should write parameter with enum values",
+			param: Param{
+				Name:        "status",
+				Description: "User status",
+				ParamType:   "string",
+				Required:    true,
+				Enum:        []interface{}{"active", "inactive", "pending"},
+			},
+			location: "query",
+			expected: "// @Param status query string true \"User status (enum: active,inactive,pending)\"\n",
+		},
+		{
+			name: "Should write parameter with format",
+			param: Param{
+				Name:        "user_id",
+				Description: "User identifier",
+				ParamType:   "string",
+				Required:    true,
+				Format:      "uuid",
+			},
+			location: "path",
+			expected: "// @Param user_id path string true \"User identifier (format: uuid)\"\n",
+		},
+		{
+			name: "Should write parameter with minimum and maximum",
+			param: Param{
+				Name:        "age",
+				Description: "User age",
+				ParamType:   "integer",
+				Required:    false,
+				Minimum:     floatPtr(18),
+				Maximum:     floatPtr(120),
+			},
+			location: "query",
+			expected: "// @Param age query integer false \"User age (min: 18) (max: 120)\"\n",
+		},
+		{
+			name: "Should write parameter with minLength and maxLength",
+			param: Param{
+				Name:        "password",
+				Description: "User password",
+				ParamType:   "string",
+				Required:    true,
+				MinLength:   intPtr(8),
+				MaxLength:   intPtr(128),
+			},
+			location: "formData",
+			expected: "// @Param password formData string true \"User password (minLength: 8) (maxLength: 128)\"\n",
+		},
+		{
+			name: "Should write parameter with pattern",
+			param: Param{
+				Name:        "phone",
+				Description: "Phone number",
+				ParamType:   "string",
+				Required:    false,
+				Pattern:     "^\\+?[1-9]\\d{1,14}$",
+			},
+			location: "query",
+			expected: "// @Param phone query string false \"Phone number (pattern: ^\\\\+?[1-9]\\\\d{1,14}$)\"\n",
+		},
+		{
+			name: "Should write parameter with collectionFormat",
+			param: Param{
+				Name:             "tags",
+				Description:      "Filter tags",
+				ParamType:        "array",
+				Required:         false,
+				CollectionFormat: "multi",
+			},
+			location: "query",
+			expected: "// @Param tags query array false \"Filter tags (collectionFormat: multi)\"\n",
+		},
+		{
+			name: "Should write parameter with allowEmptyValue",
+			param: Param{
+				Name:           "filter",
+				Description:    "Optional filter",
+				ParamType:      "string",
+				Required:       false,
+				AllowEmptyValue: true,
+			},
+			location: "query",
+			expected: "// @Param filter query string false \"Optional filter (allowEmptyValue: true)\"\n",
+		},
+		{
+			name: "Should write parameter with all extended attributes",
+			param: Param{
+				Name:             "status",
+				Description:      "Filter by status",
+				ParamType:        "array",
+				Required:         false,
+				Default:          "active",
+				Example:          "pending",
+				Enum:             []interface{}{"active", "inactive", "pending"},
+				Format:           "string",
+				MinLength:        intPtr(3),
+				MaxLength:        intPtr(20),
+				CollectionFormat: "csv",
+			},
+			location: "query",
+			expected: "// @Param status query array false \"Filter by status (format: string) (enum: active,inactive,pending) (default: active) (example: pending) (minLength: 3) (maxLength: 20) (collectionFormat: csv)\"\n",
+		},
+		{
+			name: "Should write formData parameter",
+			param: Param{
+				Name:        "file",
+				Description: "Upload file",
+				ParamType:   "file",
+				Required:    true,
+			},
+			location: "formData",
+			expected: "// @Param file formData file true \"Upload file\"\n",
+		},
+		{
+			name: "Should write header parameter",
+			param: Param{
+				Name:        "Authorization",
+				Description: "Bearer token",
+				ParamType:   "string",
+				Required:    true,
+			},
+			location: "header",
+			expected: "// @Param Authorization header string true \"Bearer token\"\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var b strings.Builder
+			writeParam(&b, tt.param, tt.location)
+			result := b.String()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestWriteRoutes_withExtendedParams(t *testing.T) {
+	tests := []struct {
+		name                string
+		route               Route
+		expectedContains    []string
+		expectedNotContains []string
+	}{
+		{
+			name: "Should write query parameter with options",
+			route: Route{
+				Path:   "/users",
+				Method: "GET",
+				QueryParams: []Param{
+					{
+						Name:        "status",
+						Description: "Filter status",
+						ParamType:   "string",
+						Required:    false,
+						Default:     "active",
+						Enum:        []interface{}{"active", "inactive"},
+					},
+				},
+			},
+			expectedContains: []string{
+				"@Param status query",
+				"(default: active)",
+				"(enum: active,inactive)",
+			},
+			expectedNotContains: []string{},
+		},
+		{
+			name: "Should write formData parameter",
+			route: Route{
+				Path:   "/upload",
+				Method: "POST",
+				FormDataParams: []Param{
+					{
+						Name:        "file",
+						Description: "File to upload",
+						ParamType:   "file",
+						Required:    true,
+					},
+				},
+			},
+			expectedContains: []string{
+				"@Param file formData file",
+			},
+			expectedNotContains: []string{},
+		},
+		{
+			name: "Should write path parameter with validation",
+			route: Route{
+				Path:   "/users/{id}",
+				Method: "GET",
+				PathParams: []Param{
+					{
+						Name:        "id",
+						Description: "User ID",
+						ParamType:   "string",
+						Required:    true,
+						Format:      "uuid",
+						Pattern:     "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+					},
+				},
+			},
+			expectedContains: []string{
+				"@Param id path string true",
+				"(format: uuid)",
+				"(pattern:",
+			},
+			expectedNotContains: []string{},
+		},
+		{
+			name: "Should write query parameter with collectionFormat",
+			route: Route{
+				Path:   "/search",
+				Method: "GET",
+				QueryParams: []Param{
+					{
+						Name:             "tags",
+						Description:      "Filter tags",
+						ParamType:        "array",
+						Required:         false,
+						CollectionFormat: "multi",
+					},
+				},
+			},
+			expectedContains: []string{
+				"@Param tags query array",
+				"(collectionFormat: multi)",
+			},
+			expectedNotContains: []string{},
+		},
+		{
+			name: "Should write parameter with allowEmptyValue for query",
+			route: Route{
+				Path:   "/search",
+				Method: "GET",
+				QueryParams: []Param{
+					{
+						Name:           "q",
+						Description:    "Search query",
+						ParamType:      "string",
+						Required:       false,
+						AllowEmptyValue: true,
+					},
+				},
+			},
+			expectedContains: []string{
+				"@Param q query string false",
+				"(allowEmptyValue: true)",
+			},
+			expectedNotContains: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var s strings.Builder
+			var wrapperStructs strings.Builder
+			packagesToImport := make(map[string]bool)
+
+			writeRoutes("", []Route{tt.route}, &s, packagesToImport, &wrapperStructs)
+
+			result := s.String()
+
+			for _, expected := range tt.expectedContains {
+				assert.Contains(t, result, expected, "Expected to find: %s", expected)
+			}
+
+			for _, notExpected := range tt.expectedNotContains {
+				assert.NotContains(t, result, notExpected, "Should not find: %s", notExpected)
+			}
+		})
+	}
+}
+
+// Helper functions for tests
+func floatPtr(f float64) *float64 {
+	return &f
+}
+
+func intPtr(i int) *int {
+	return &i
+}
