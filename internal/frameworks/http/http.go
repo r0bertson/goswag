@@ -13,6 +13,7 @@ type httpSwagger struct {
 	groups           []*httpGroup
 	routes           []*httpRoute
 	defaultResponses []models.ReturnType
+	config           *models.SwaggerConfig
 }
 
 func NewHTTP(mux *http.ServeMux, defaultResponses ...models.ReturnType) *httpSwagger {
@@ -22,12 +23,22 @@ func NewHTTP(mux *http.ServeMux, defaultResponses ...models.ReturnType) *httpSwa
 	}
 }
 
+// NewHTTPWithConfig creates a new HTTP swagger instance with global configuration.
+// This allows setting host, basePath, schemes, contact, license, etc. globally.
+func NewHTTPWithConfig(mux *http.ServeMux, config *models.SwaggerConfig, defaultResponses ...models.ReturnType) *httpSwagger {
+	return &httpSwagger{
+		mux:              mux,
+		defaultResponses: defaultResponses,
+		config:           config,
+	}
+}
+
 func (s *httpSwagger) Mux() *http.ServeMux {
 	return s.mux
 }
 
 func (s *httpSwagger) GenerateSwagger() {
-	generator.GenerateSwagger(toGoSwagRoute(s.routes), toGoSwagGroup(s.groups), s.defaultResponses)
+	generator.GenerateSwagger(toGoSwagRoute(s.routes), toGoSwagGroup(s.groups), s.defaultResponses, s.config)
 }
 
 func (s *httpSwagger) Group(relativePath string, handlers ...http.HandlerFunc) models.HTTPRouter {
@@ -318,6 +329,26 @@ func (r *httpRoute) FileParam(name, description string, required bool) models.Sw
 		Required:    required,
 	}
 	r.Route.FormDataParams = append(r.Route.FormDataParams, param)
+	return r
+}
+
+func (r *httpRoute) OperationID(id string) models.Swagger {
+	r.Route.OperationID = id
+	return r
+}
+
+func (r *httpRoute) Deprecated() models.Swagger {
+	r.Route.Deprecated = true
+	return r
+}
+
+func (r *httpRoute) Schemes(schemes ...string) models.Swagger {
+	r.Route.Schemes = schemes
+	return r
+}
+
+func (r *httpRoute) ExternalDocs(url, description string) models.Swagger {
+	r.Route.ExternalDocs = models.NewExternalDocs(url, description)
 	return r
 }
 

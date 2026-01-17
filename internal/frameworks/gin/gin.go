@@ -13,6 +13,7 @@ type ginSwagger struct {
 	groups           []*ginGroup
 	routes           []*ginRoute
 	defaultResponses []models.ReturnType
+	config           *models.SwaggerConfig
 }
 
 func NewGin(g *gin.Engine, defaultResponses ...models.ReturnType) *ginSwagger {
@@ -27,7 +28,7 @@ func (s *ginSwagger) Gin() *gin.Engine {
 }
 
 func (s *ginSwagger) GenerateSwagger() {
-	generator.GenerateSwagger(toGoSwagRoute(s.routes), toGoSwagGroup(s.groups), s.defaultResponses)
+	generator.GenerateSwagger(toGoSwagRoute(s.routes), toGoSwagGroup(s.groups), s.defaultResponses, s.config)
 }
 
 func (s *ginSwagger) Group(relativePath string, handlers ...gin.HandlerFunc) models.GinRouter {
@@ -493,5 +494,25 @@ func (r *ginRoute) FileParam(name, description string, required bool) models.Swa
 		Required:    required,
 	}
 	r.Route.FormDataParams = append(r.Route.FormDataParams, param)
+	return r
+}
+
+func (r *ginRoute) OperationID(id string) models.Swagger {
+	r.Route.OperationID = id
+	return r
+}
+
+func (r *ginRoute) Deprecated() models.Swagger {
+	r.Route.Deprecated = true
+	return r
+}
+
+func (r *ginRoute) Schemes(schemes ...string) models.Swagger {
+	r.Route.Schemes = schemes
+	return r
+}
+
+func (r *ginRoute) ExternalDocs(url, description string) models.Swagger {
+	r.Route.ExternalDocs = models.NewExternalDocs(url, description)
 	return r
 }

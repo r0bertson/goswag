@@ -9,6 +9,14 @@ type ReturnType struct {
 	// The key should be the JSON field name (e.g., "id", "name", "email").
 	// Example: map[string]string{"id": "Unique identifier", "name": "User's full name"}
 	FieldDescriptions map[string]string
+	// Headers defines response headers for this response.
+	// The key is the header name (e.g., "X-RateLimit-Remaining").
+	Headers map[string]*ResponseHeader
+	// Examples provides example response payloads keyed by content-type.
+	// Common keys: "application/json", "application/xml", etc.
+	Examples map[string]interface{}
+	// Description is a description for this specific response.
+	Description string
 }
 
 type Swagger interface {
@@ -112,4 +120,17 @@ type Swagger interface {
 	// FileParam defines a file upload parameter (for multipart/form-data).
 	// This is a convenience method for file uploads.
 	FileParam(name, description string, required bool) Swagger
+
+	// OperationID sets a unique operation identifier for code generation.
+	OperationID(id string) Swagger
+
+	// Deprecated marks the operation as deprecated.
+	Deprecated() Swagger
+
+	// Schemes sets the allowed schemes for this operation (overrides global schemes).
+	// Valid values: "http", "https", "ws", "wss"
+	Schemes(schemes ...string) Swagger
+
+	// ExternalDocs adds external documentation links for this operation.
+	ExternalDocs(url, description string) Swagger
 }

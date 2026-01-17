@@ -52,6 +52,11 @@ type Route struct {
 	PathParams            []Param
 	FormDataParams        []Param // For multipart/form-data and application/x-www-form-urlencoded
 	Security              []string
+	// Operation-level enhancements
+	OperationID string
+	Deprecated  bool
+	Schemes     []string
+	ExternalDocs *models.ExternalDocs
 }
 
 type Group struct {
@@ -60,7 +65,7 @@ type Group struct {
 	Groups    []Group
 }
 
-func GenerateSwagger(routes []Route, groups []Group, defaultResponses []models.ReturnType) {
+func GenerateSwagger(routes []Route, groups []Group, defaultResponses []models.ReturnType, config *models.SwaggerConfig) {
 	var (
 		packagesToImport = make(map[string]bool)
 		fullFileContent  = &strings.Builder{}
@@ -71,12 +76,17 @@ func GenerateSwagger(routes []Route, groups []Group, defaultResponses []models.R
 
 	routes, groups = addDefaultResponses(routes, groups, defaultResponses)
 
+	// Write global swagger configuration if provided
+	if config != nil {
+		writeGlobalConfig(fullFileContent, config)
+	}
+
 	if routes != nil {
-		writeRoutes("", routes, fullFileContent, packagesToImport, wrapperStructs)
+		writeRoutes("", routes, fullFileContent, packagesToImport, wrapperStructs, config)
 	}
 
 	if groups != nil {
-		writeGroup(groups, fullFileContent, packagesToImport, wrapperStructs)
+		writeGroup(groups, fullFileContent, packagesToImport, wrapperStructs, config)
 	}
 
 	f, err := os.Create(fmt.Sprintf("./%s", fileName))
@@ -124,7 +134,7 @@ func writeFileContent(file io.Writer, content string, packagesToImport map[strin
 	fmt.Fprintf(file, "%s", content)
 }
 
-func writeRoutes(groupName string, routes []Route, s *strings.Builder, packagesToImport map[string]bool, wrapperStructs *strings.Builder) {
+func writeRoutes(groupName string, routes []Route, s *strings.Builder, packagesToImport map[string]bool, wrapperStructs *strings.Builder, config *models.SwaggerConfig) {
 	for _, r := range routes {
 		addLineIfNotEmpty(s, r.Summary, "// @Summary %s\n")
 		addTextIfNotEmptyOrDefault(s, r.Summary, "// @Description %s\n", r.Description)
@@ -171,12 +181,39 @@ func writeRoutes(groupName string, routes []Route, s *strings.Builder, packagesT
 			writeParam(s, param, "formData")
 		}
 
-		if len(r.Security) > 0 {
-			for _, scheme := range r.Security {
+		// Apply global security if no operation-specific security is defined
+		securitySchemes := r.Security
+		if len(securitySchemes) == 0 && config != nil && len(config.GlobalSecurity) > 0 {
+			securitySchemes = config.GlobalSecurity
+		}
+
+		if len(securitySchemes) > 0 {
+			for _, scheme := range securitySchemes {
 				if strings.TrimSpace(scheme) == "" { // skip empty
 					continue
 				}
 				s.WriteString(fmt.Sprintf("// @Security %s\n", scheme))
+			}
+		}
+
+		// Operation-level enhancements
+		if r.OperationID != "" {
+			s.WriteString(fmt.Sprintf("// @OperationID %s\n", r.OperationID))
+		}
+
+		if r.Deprecated {
+			s.WriteString("// @Deprecated\n")
+		}
+
+		if len(r.Schemes) > 0 {
+			s.WriteString(fmt.Sprintf("// @Schemes %s\n", strings.Join(r.Schemes, " ")))
+		}
+
+		if r.ExternalDocs != nil {
+			if r.ExternalDocs.Description != "" {
+				s.WriteString(fmt.Sprintf("// @ExternalDocs %s \"%s\"\n", r.ExternalDocs.URL, r.ExternalDocs.Description))
+			} else {
+				s.WriteString(fmt.Sprintf("// @ExternalDocs %s\n", r.ExternalDocs.URL))
 			}
 		}
 
@@ -209,8 +246,18 @@ func writeReturns(returns []models.ReturnType, s *strings.Builder, packagesToImp
 			respType = "@Failure"
 		}
 
+		// Build response description if provided
+		responseDesc := ""
+		if data.Description != "" {
+			responseDesc = " \"" + data.Description + "\""
+		}
+
 		if data.Body == nil {
-			s.WriteString(fmt.Sprintf("// %s %d\n", respType, data.StatusCode))
+			// Response without body - can still have headers and description
+			s.WriteString(fmt.Sprintf("// %s %d%s", respType, data.StatusCode, responseDesc))
+			writeResponseHeaders(s, data.Headers)
+			writeResponseExamples(s, data.Examples)
+			s.WriteString("\n")
 			continue
 		}
 
@@ -225,22 +272,28 @@ func writeReturns(returns []models.ReturnType, s *strings.Builder, packagesToImp
 
 		if !isGeneric {
 			// if it is not a generic type, we can write the response normally
-			s.WriteString(fmt.Sprintf("// %s %d {object} %s", respType, data.StatusCode, structName))
+			s.WriteString(fmt.Sprintf("// %s %d {object} %s%s", respType, data.StatusCode, structName, responseDesc))
 		}
 
 		addPackageToImport(data, packagesToImport)
 		handleOverrideStructFields(s, data)
 
+		// Write response headers if any
+		writeResponseHeaders(s, data.Headers)
+
+		// Write response examples if any
+		writeResponseExamples(s, data.Examples)
+
 		s.WriteString("\n")
 	}
 }
 
-func writeGroup(groups []Group, s *strings.Builder, packagesToImport map[string]bool, wrapperStructs *strings.Builder) {
+func writeGroup(groups []Group, s *strings.Builder, packagesToImport map[string]bool, wrapperStructs *strings.Builder, config *models.SwaggerConfig) {
 	for _, g := range groups {
-		writeRoutes(g.GroupName, g.Routes, s, packagesToImport, wrapperStructs)
+		writeRoutes(g.GroupName, g.Routes, s, packagesToImport, wrapperStructs, config)
 
 		if g.Groups != nil {
-			writeGroup(g.Groups, s, packagesToImport, wrapperStructs)
+			writeGroup(g.Groups, s, packagesToImport, wrapperStructs, config)
 		}
 	}
 }
@@ -520,6 +573,48 @@ func addLineIfNotEmpty(s *strings.Builder, data, format string) {
 	}
 }
 
+// writeResponseHeaders writes response header annotations.
+// Swaggo/swag format: @Header name {type} "description"
+func writeResponseHeaders(s *strings.Builder, headers map[string]*models.ResponseHeader) {
+	if headers == nil || len(headers) == 0 {
+		return
+	}
+
+	for name, header := range headers {
+		if header == nil {
+			continue
+		}
+		headerType := header.Type
+		if headerType == "" {
+			headerType = "string" // default type
+		}
+		desc := header.Description
+		if header.Format != "" {
+			desc = fmt.Sprintf("%s (format: %s)", desc, header.Format)
+		}
+		s.WriteString(fmt.Sprintf("// @Header %s {%s} %q\n", name, headerType, desc))
+	}
+}
+
+// writeResponseExamples writes response example annotations.
+// Swaggo/swag format: @Example {content-type} {example}
+func writeResponseExamples(s *strings.Builder, examples map[string]interface{}) {
+	if examples == nil || len(examples) == 0 {
+		return
+	}
+
+	for contentType, example := range examples {
+		if example == nil {
+			continue
+		}
+		// Convert example to string representation
+		exampleStr := fmt.Sprintf("%v", example)
+		// Escape quotes if needed
+		exampleStr = strings.ReplaceAll(exampleStr, "\"", "\\\"")
+		s.WriteString(fmt.Sprintf("// @Example %s %q\n", contentType, exampleStr))
+	}
+}
+
 // writeParam writes a parameter annotation with all extended Swagger 2.0 features.
 // Swaggo/swag supports extended attributes through the description field and struct tags.
 // We format the description to include additional metadata that swag can parse.
@@ -588,4 +683,74 @@ func writeParam(s *strings.Builder, param Param, location string) {
 	// Format: @Param name location type required "description"
 	s.WriteString(fmt.Sprintf("// @Param %s %s %s %t %q\n",
 		param.Name, location, paramType, param.Required, desc))
+}
+
+// writeGlobalConfig writes global Swagger configuration annotations.
+// These annotations are typically placed at the top of the file or in main.go.
+// Swaggo/swag reads these from the main package, so we'll generate them as comments
+// that can be copied to main.go or included in the generated file.
+func writeGlobalConfig(s *strings.Builder, config *models.SwaggerConfig) {
+	if config == nil {
+		return
+	}
+
+	// Note: @title, @version are typically set in main.go, but we can document them here
+	// @host, @BasePath, @schemes are global settings
+	if config.Host != "" {
+		s.WriteString(fmt.Sprintf("// @host %s\n", config.Host))
+	}
+
+	if config.BasePath != "" {
+		s.WriteString(fmt.Sprintf("// @BasePath %s\n", config.BasePath))
+	}
+
+	if len(config.Schemes) > 0 {
+		s.WriteString(fmt.Sprintf("// @schemes %s\n", strings.Join(config.Schemes, " ")))
+	}
+
+	// Contact information
+	if config.Contact != nil {
+		if config.Contact.Name != "" {
+			s.WriteString(fmt.Sprintf("// @contact.name %s\n", config.Contact.Name))
+		}
+		if config.Contact.Email != "" {
+			s.WriteString(fmt.Sprintf("// @contact.email %s\n", config.Contact.Email))
+		}
+		if config.Contact.URL != "" {
+			s.WriteString(fmt.Sprintf("// @contact.url %s\n", config.Contact.URL))
+		}
+	}
+
+	// License information
+	if config.License != nil {
+		if config.License.Name != "" {
+			s.WriteString(fmt.Sprintf("// @license.name %s\n", config.License.Name))
+		}
+		if config.License.URL != "" {
+			s.WriteString(fmt.Sprintf("// @license.url %s\n", config.License.URL))
+		}
+	}
+
+	// Terms of Service
+	if config.TermsOfService != "" {
+		s.WriteString(fmt.Sprintf("// @termsOfService %s\n", config.TermsOfService))
+	}
+
+	// External Documentation
+	if config.ExternalDocs != nil {
+		if config.ExternalDocs.Description != "" {
+			s.WriteString(fmt.Sprintf("// @externalDocs.description %s\n", config.ExternalDocs.Description))
+		}
+		if config.ExternalDocs.URL != "" {
+			s.WriteString(fmt.Sprintf("// @externalDocs.url %s\n", config.ExternalDocs.URL))
+		}
+	}
+
+	// Global Security (applied to all operations unless overridden)
+	// Note: This is written as a comment for documentation, actual application happens in writeRoutes
+	if len(config.GlobalSecurity) > 0 {
+		s.WriteString(fmt.Sprintf("// @security %s\n", strings.Join(config.GlobalSecurity, " ")))
+	}
+
+	s.WriteString("\n")
 }
