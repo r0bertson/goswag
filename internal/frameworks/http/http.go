@@ -48,6 +48,16 @@ func (s *httpSwagger) Group(relativePath string, handlers ...http.HandlerFunc) m
 	return g
 }
 
+// TagDescription is a no-op for the top-level router (groups implement this)
+func (s *httpSwagger) TagDescription(description string) models.HTTPGroup {
+	return s
+}
+
+// TagExternalDocs is a no-op for the top-level router (groups implement this)
+func (s *httpSwagger) TagExternalDocs(url, description string) models.HTTPGroup {
+	return s
+}
+
 func (s *httpSwagger) Handle(httpMethod, relativePath string, handlers ...http.HandlerFunc) models.Swagger {
 	// For net/http, we need to create a custom handler that checks the method
 	handler := createMethodHandler(httpMethod, handlers...)
@@ -94,10 +104,13 @@ func (s *httpSwagger) HEAD(relativePath string, handlers ...http.HandlerFunc) mo
 }
 
 type httpGroup struct {
-	prefix    string
-	mux       *http.ServeMux
-	groupName string
-	routes    []*httpRoute
+	prefix          string
+	mux             *http.ServeMux
+	groupName       string
+	routes          []*httpRoute
+	groups          []*httpGroup
+	tagDescription  string
+	tagExternalDocs  *models.ExternalDocs
 }
 
 func (g *httpGroup) Handle(httpMethod, relativePath string, handlers ...http.HandlerFunc) models.Swagger {
@@ -144,6 +157,23 @@ func (g *httpGroup) OPTIONS(relativePath string, handlers ...http.HandlerFunc) m
 
 func (g *httpGroup) HEAD(relativePath string, handlers ...http.HandlerFunc) models.Swagger {
 	return g.Handle(http.MethodHead, relativePath, handlers...)
+}
+
+func (g *httpGroup) TagDescription(description string) models.HTTPGroup {
+	g.tagDescription = description
+	return g
+}
+
+func (g *httpGroup) TagExternalDocs(url, description string) models.HTTPGroup {
+	g.tagExternalDocs = models.NewExternalDocs(url, description)
+	return g
+}
+
+func (g *httpGroup) Group(prefix string, handlers ...http.HandlerFunc) models.HTTPRouter {
+	fullPrefix := getFullPath(g.prefix, prefix)
+	subGroup := &httpGroup{prefix: fullPrefix, mux: g.mux, groupName: fullPrefix}
+	g.groups = append(g.groups, subGroup)
+	return subGroup
 }
 
 type httpRoute struct {

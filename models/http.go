@@ -41,4 +41,12 @@ type HTTPGroup interface {
 	//
 	// Group creates a new router group with prefix and optional group-level middleware.
 	Group(prefix string, h ...http.HandlerFunc) HTTPRouter
+
+	// TagDescription sets the description for the tag associated with this group.
+	// The tag name is automatically derived from the group name.
+	TagDescription(description string) HTTPGroup
+
+	// TagExternalDocs sets external documentation for the tag associated with this group.
+	// The tag name is automatically derived from the group name.
+	TagExternalDocs(url, description string) HTTPGroup
 }

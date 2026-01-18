@@ -174,9 +174,196 @@ func handleLogin() {} //nolint:unused
 To see an example of usage, you can check this [repository](https://github.com/r0bertson/go_boilerplate).
 The necessary modifications are located in `transport/rest/server.go` and the `router.go` file inside of each route directory in `transport/rest/routes/`.
 
+## Enhanced Features (New in v2.0)
+
+### Enhanced Parameters
+
+GoSwag now supports comprehensive parameter options including validation, defaults, examples, and more:
+
+```go
+// Query parameter with validation and default value
+gh.GET("/users").
+    QueryParamWithOptions("page", "Page number", goswag.IntType, false,
+        models.NewParamOptions().
+            WithDefault(1).
+            WithMinimum(1).
+            WithMaximum(100).
+            WithExample(1),
+    ).
+    // Enum values
+    QueryParamWithOptions("status", "Filter by status", goswag.StringType, false,
+        models.NewParamOptions().
+            WithEnum("active", "inactive", "pending").
+            WithDefault("active"),
+    ).
+    // Collection format (for arrays)
+    QueryParamWithOptions("tags", "Filter by tags", goswag.StringType, false,
+        models.NewParamOptions().
+            WithCollectionFormat("csv").
+            WithExample("tag1,tag2,tag3"),
+    )
+
+// Path parameter with format and pattern validation
+gh.GET("/users/{id}").
+    PathParamWithOptions("id", "User ID", goswag.StringType, true,
+        models.NewParamOptions().
+            WithFormat("uuid").
+            WithPattern("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"),
+    )
+```
+
+**Available parameter options:**
+- `WithDefault(value)` - Set default value
+- `WithExample(value)` - Set example value
+- `WithMinimum(min)` - Set minimum value (for numbers)
+- `WithMaximum(max)` - Set maximum value (for numbers)
+- `WithMinLength(min)` - Set minimum length (for strings)
+- `WithMaxLength(max)` - Set maximum length (for strings)
+- `WithPattern(pattern)` - Set regex pattern (for strings)
+- `WithEnum(values...)` - Set allowed enum values
+- `WithFormat(format)` - Set format (e.g., "uuid", "email", "date-time")
+- `WithCollectionFormat(format)` - Set collection format ("csv", "ssv", "tsv", "pipes", "multi")
+- `WithAllowEmptyValue()` - Allow empty values
+
+### Form Data and File Uploads
+
+```go
+// Form data parameter
+gh.POST("/users/{id}/avatar").
+    FormDataParam("description", "Image description", goswag.StringType, false).
+    FileParam("avatar", "Avatar image file", true)
+```
+
+### Operation-Level Enhancements
+
+```go
+gh.GET("/users/{id}").
+    Summary("Get user by ID").
+    OperationID("getUserById").           // Unique operation identifier
+    Deprecated().                         // Mark as deprecated
+    Schemes("https", "wss").              // Override global schemes
+    ExternalDocs("https://docs.example.com/users", "User API documentation")
+```
+
+### Response Enhancements
+
+```go
+gh.GET("/users").
+    Returns([]models.ReturnType{
+        {
+            StatusCode: http.StatusOK,
+            Body:       UserListResponse{},
+            Description: "Successfully retrieved users",
+            // Response headers
+            Headers: map[string]*models.ResponseHeader{
+                "X-Total-Count": models.NewResponseHeader("integer", "Total number of users"),
+                "X-Request-ID":  models.NewResponseHeader("string", "Request ID").WithFormat("uuid"),
+            },
+            // Response examples
+            Examples: map[string]interface{}{
+                "application/json": map[string]interface{}{
+                    "users": []User{{ID: 1, Name: "John Doe"}},
+                    "total": 1,
+                },
+            },
+        },
+    })
+```
+
+### Global Configuration
+
+Configure global Swagger settings:
+
+```go
+config := models.NewSwaggerConfig().
+    WithHost("api.example.com").
+    WithBasePath("/v1").
+    WithSchemes("https").
+    WithContact(models.NewContactInfo("API Support", "support@example.com", "")).
+    WithLicense(models.NewLicenseInfo("MIT", "https://opensource.org/licenses/MIT")).
+    WithTermsOfService("https://example.com/terms").
+    WithExternalDocs(models.NewExternalDocs("https://docs.example.com", "API Documentation")).
+    WithGlobalSecurity("BearerAuth")
+
+gh := goswag.NewHTTPWithConfig(mux, config, defaultResponses...)
+```
+
+### Tag Metadata
+
+Add descriptions and external documentation to route groups (tags):
+
+```go
+userGroup := gh.Group("/users").
+    TagDescription("User management operations").
+    TagExternalDocs("https://docs.example.com/users", "User API documentation")
+
+userGroup.GET("/").
+    Summary("List users").
+    Returns([]models.ReturnType{...})
+```
+
 ## More features
 You can add description for fields, add if they are required or not.  
 For this struct fields features and more, you can follow the [swag documentation](https://github.com/swaggo/swag) to understand how to add it.
+
+## Migration Guide
+
+### Upgrading from v1.x to v2.0
+
+All existing code continues to work without changes. New features are opt-in:
+
+**Before (v1.x):**
+```go
+gh := goswag.NewHTTP(mux, defaultResponses...)
+gh.GET("/users").
+    QueryParam("page", "Page number", goswag.IntType, false)
+```
+
+**After (v2.0) - Same code still works:**
+```go
+gh := goswag.NewHTTP(mux, defaultResponses...)
+gh.GET("/users").
+    QueryParam("page", "Page number", goswag.IntType, false)
+```
+
+**After (v2.0) - Using new features:**
+```go
+// Option 1: Use enhanced parameters
+gh.GET("/users").
+    QueryParamWithOptions("page", "Page number", goswag.IntType, false,
+        models.NewParamOptions().WithDefault(1).WithMinimum(1),
+    )
+
+// Option 2: Add global configuration
+config := models.NewSwaggerConfig().
+    WithHost("api.example.com").
+    WithBasePath("/v1")
+gh := goswag.NewHTTPWithConfig(mux, config, defaultResponses...)
+
+// Option 3: Add operation metadata
+gh.GET("/users/{id}").
+    OperationID("getUserById").
+    Deprecated()
+```
+
+### Key Changes
+
+1. **New Methods**: All new features use new method names (e.g., `QueryParamWithOptions` instead of modifying `QueryParam`)
+2. **Backward Compatible**: All existing methods work exactly as before
+3. **Opt-in**: New features are only used when explicitly called
+4. **No Breaking Changes**: No changes to existing method signatures
+
+## Complete Example
+
+See [examples/comprehensive_example.go](./examples/comprehensive_example.go) for a complete example demonstrating all features.
+
+## LLM Integration
+
+If you're using an LLM to automatically generate Swagger documentation from unannotated handlers, see [LLM_GUIDE.md](./LLM_GUIDE.md) for detailed instructions on:
+- Analyzing handler code patterns
+- Inferring Swagger metadata from code
+- Transforming handlers to GoSwag code
+- Common patterns and best practices
 
 ## Contributing
 

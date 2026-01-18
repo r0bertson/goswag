@@ -60,9 +60,11 @@ type Route struct {
 }
 
 type Group struct {
-	GroupName string
-	Routes    []Route
-	Groups    []Group
+	GroupName      string
+	Routes         []Route
+	Groups         []Group
+	TagDescription string
+	TagExternalDocs *models.ExternalDocs
 }
 
 func GenerateSwagger(routes []Route, groups []Group, defaultResponses []models.ReturnType, config *models.SwaggerConfig) {
@@ -290,6 +292,23 @@ func writeReturns(returns []models.ReturnType, s *strings.Builder, packagesToImp
 
 func writeGroup(groups []Group, s *strings.Builder, packagesToImport map[string]bool, wrapperStructs *strings.Builder, config *models.SwaggerConfig) {
 	for _, g := range groups {
+		// Write tag metadata if provided
+		// Swaggo/swag format: @Tag name "description" (externalDocs.url "externalDocs.description")
+		if g.TagDescription != "" || g.TagExternalDocs != nil {
+			tagAnnotation := fmt.Sprintf("// @Tag %s", g.GroupName)
+			if g.TagDescription != "" {
+				tagAnnotation += fmt.Sprintf(" \"%s\"", g.TagDescription)
+			}
+			if g.TagExternalDocs != nil {
+				if g.TagExternalDocs.Description != "" {
+					tagAnnotation += fmt.Sprintf(" (%s \"%s\")", g.TagExternalDocs.URL, g.TagExternalDocs.Description)
+				} else {
+					tagAnnotation += fmt.Sprintf(" (%s)", g.TagExternalDocs.URL)
+				}
+			}
+			s.WriteString(tagAnnotation + "\n")
+		}
+
 		writeRoutes(g.GroupName, g.Routes, s, packagesToImport, wrapperStructs, config)
 
 		if g.Groups != nil {

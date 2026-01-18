@@ -1,9 +1,9 @@
 package main
 
 import (
-	"encoding/json"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/r0bertson/goswag"
 	"github.com/r0bertson/goswag/models"
 )
@@ -19,9 +19,9 @@ type User struct {
 type CreateUserRequest struct {
 	Name     string  `json:"name"`
 	Email    string  `json:"email"`
-	Phone    *string `json:"phone"`               // Optional field (pointer)
-	Age      *int    `json:"age,omitempty"`       // Optional field with omitempty
-	IsActive *bool   `json:"is_active,omitempty"` // Optional boolean field
+	Phone    *string `json:"phone,omitempty"`     // Optional phone number
+	Age      *int    `json:"age,omitempty"`       // Optional age
+	IsActive *bool   `json:"is_active,omitempty"` // Optional active status
 }
 
 // ErrorResponse represents an error response
@@ -30,11 +30,78 @@ type ErrorResponse struct {
 	Message string `json:"message"`
 }
 
-func main() {
-	// Create a new HTTP mux
-	mux := http.NewServeMux()
+// Handler functions
+func handleGetUsers(c *gin.Context) {
+	users := []User{
+		{ID: "1", Name: "John Doe", Email: "john@example.com"},
+		{ID: "2", Name: "Jane Smith", Email: "jane@example.com"},
+	}
+	c.JSON(http.StatusOK, users)
+}
 
-	// Create goswag HTTP wrapper with default error responses
+func handleCreateUser(c *gin.Context) {
+	var req CreateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	user := User{
+		ID:    "3",
+		Name:  req.Name,
+		Email: req.Email,
+	}
+	c.JSON(http.StatusCreated, user)
+}
+
+func handleGetUser(c *gin.Context) {
+	userID := c.Param("user_id")
+	user := User{ID: userID, Name: "John Doe", Email: "john@example.com"}
+	c.JSON(http.StatusOK, user)
+}
+
+func handleUpdateUser(c *gin.Context) {
+	var req CreateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	user := User{
+		ID:    c.Param("user_id"),
+		Name:  req.Name,
+		Email: req.Email,
+	}
+	c.JSON(http.StatusOK, user)
+}
+
+func handleDeleteUser(c *gin.Context) {
+	c.Status(http.StatusNoContent)
+}
+
+// SetupRoutes creates routes using goswag
+// mode can be "release", "test", or "debug" (defaults to "release")
+func SetupRoutes(mode ...string) *gin.Engine {
+	ginMode := gin.ReleaseMode
+	if len(mode) > 0 {
+		switch mode[0] {
+		case "test":
+			ginMode = gin.TestMode
+		case "debug":
+			ginMode = gin.DebugMode
+		default:
+			ginMode = gin.ReleaseMode
+		}
+	}
+	gin.SetMode(ginMode)
+	g := gin.New()
+
 	defaultResponses := []models.ReturnType{
 		{
 			StatusCode: http.StatusBadRequest,
@@ -46,8 +113,7 @@ func main() {
 		},
 	}
 
-	// Initialize goswag HTTP wrapper
-	swagger := goswag.NewHTTP(mux, defaultResponses...)
+	swagger := goswag.NewGin(g, defaultResponses...)
 
 	// Define routes with swagger annotations
 	swagger.GET("/users", handleGetUsers).
@@ -69,16 +135,15 @@ func main() {
 		Accepts("application/json").
 		Produces("application/json").
 		Read(CreateUserRequest{}).
-		// Add field descriptions for request body properties
 		ReadFieldDescriptions(map[string]string{
 			"name":  "The full name of the user",
 			"email": "The user's email address, must be a valid email format",
+			"phone": "Optional phone number",
 		}).
 		Returns([]models.ReturnType{
 			{
 				StatusCode: http.StatusCreated,
 				Body:       User{},
-				// Add field descriptions for response body properties
 				FieldDescriptions: map[string]string{
 					"id":    "Unique identifier for the user",
 					"name":  "The full name of the user",
@@ -87,7 +152,6 @@ func main() {
 			},
 		})
 
-	// Create a group for API routes
 	apiGroup := swagger.Group("/api/v1")
 
 	apiGroup.GET("/users/{user_id}", handleGetUser).
@@ -138,67 +202,5 @@ func main() {
 	// Generate swagger documentation
 	swagger.GenerateSwagger()
 
-	// Start the server
-	println("Server starting on :8080")
-	println("Swagger documentation generated in goswag.go")
-	http.ListenAndServe(":8080", mux)
-}
-
-// Handler functions
-func handleGetUsers(w http.ResponseWriter, r *http.Request) {
-	users := []User{
-		{ID: "1", Name: "John Doe", Email: "john@example.com"},
-		{ID: "2", Name: "Jane Smith", Email: "jane@example.com"},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(users)
-}
-
-func handleCreateUser(w http.ResponseWriter, r *http.Request) {
-	var req CreateUserRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	user := User{
-		ID:    "3", // In a real app, this would be generated
-		Name:  req.Name,
-		Email: req.Email,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
-}
-
-func handleGetUser(w http.ResponseWriter, r *http.Request) {
-	// In a real app, you would extract user_id from the URL path
-	user := User{ID: "1", Name: "John Doe", Email: "john@example.com"}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
-}
-
-func handleUpdateUser(w http.ResponseWriter, r *http.Request) {
-	var req CreateUserRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	user := User{
-		ID:    "1", // In a real app, this would come from the path
-		Name:  req.Name,
-		Email: req.Email,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
-}
-
-func handleDeleteUser(w http.ResponseWriter, r *http.Request) {
-	// In a real app, you would delete the user from the database
-	w.WriteHeader(http.StatusNoContent)
+	return g
 }

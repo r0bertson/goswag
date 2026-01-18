@@ -32,14 +32,25 @@ func toGoSwagRoute(from []*echoRoute) []generator.Route {
 // It iterates over each echoGroup and creates a generator.Group object with the corresponding properties.
 // The converted generator.Group objects are then returned as a slice.
 func toGoSwagGroup(from []*echoGroup) []generator.Group {
-	var groups []generator.Group
+	var result []generator.Group
 	for _, g := range from {
-		groups = append(groups, generator.Group{
-			GroupName: g.groupName,
-			Routes:    toGoSwagRoute(g.routes),
-			Groups:    toGoSwagGroup(g.groups)},
-		)
-	}
+		var routes []generator.Route
+		for _, r := range g.routes {
+			routes = append(routes, r.Route)
+		}
 
-	return groups
+		var groups []generator.Group
+		if g.groups != nil {
+			groups = toGoSwagGroup(g.groups)
+		}
+
+		result = append(result, generator.Group{
+			GroupName:      g.groupName,
+			Routes:         routes,
+			Groups:         groups,
+			TagDescription: g.tagDescription,
+			TagExternalDocs: g.tagExternalDocs,
+		})
+	}
+	return result
 }

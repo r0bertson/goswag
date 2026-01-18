@@ -2076,6 +2076,144 @@ func TestWriteRoutes_withGlobalSecurity(t *testing.T) {
 	}
 }
 
+func TestWriteGroup_withTagEnhancements(t *testing.T) {
+	tests := []struct {
+		name                string
+		groups              []Group
+		expectedContains    []string
+		expectedNotContains []string
+	}{
+		{
+			name: "Should write tag with description",
+			groups: []Group{
+				{
+					GroupName:      "users",
+					TagDescription: "User management operations",
+					Routes:         []Route{},
+				},
+			},
+			expectedContains: []string{
+				"@Tag users",
+				"User management operations",
+			},
+			expectedNotContains: []string{},
+		},
+		{
+			name: "Should write tag with external docs",
+			groups: []Group{
+				{
+					GroupName: "users",
+					TagExternalDocs: &models.ExternalDocs{
+						URL:         "https://docs.example.com/users",
+						Description: "User API documentation",
+					},
+					Routes: []Route{},
+				},
+			},
+			expectedContains: []string{
+				"@Tag users",
+				"https://docs.example.com/users",
+				"User API documentation",
+			},
+			expectedNotContains: []string{},
+		},
+		{
+			name: "Should write tag with description and external docs",
+			groups: []Group{
+				{
+					GroupName:      "users",
+					TagDescription: "User management operations",
+					TagExternalDocs: &models.ExternalDocs{
+						URL:         "https://docs.example.com/users",
+						Description: "User API documentation",
+					},
+					Routes: []Route{},
+				},
+			},
+			expectedContains: []string{
+				"@Tag users",
+				"User management operations",
+				"https://docs.example.com/users",
+				"User API documentation",
+			},
+			expectedNotContains: []string{},
+		},
+		{
+			name: "Should write tag with external docs without description",
+			groups: []Group{
+				{
+					GroupName: "users",
+					TagExternalDocs: &models.ExternalDocs{
+						URL: "https://docs.example.com/users",
+					},
+					Routes: []Route{},
+				},
+			},
+			expectedContains: []string{
+				"@Tag users",
+				"https://docs.example.com/users",
+			},
+			expectedNotContains: []string{},
+		},
+		{
+			name: "Should not write tag annotation when no metadata provided",
+			groups: []Group{
+				{
+					GroupName: "users",
+					Routes:    []Route{},
+				},
+			},
+			expectedContains: []string{},
+			expectedNotContains: []string{
+				"@Tag",
+			},
+		},
+		{
+			name: "Should write tag for nested groups",
+			groups: []Group{
+				{
+					GroupName:      "api",
+					TagDescription: "API operations",
+					Groups: []Group{
+						{
+							GroupName:      "users",
+							TagDescription: "User operations",
+							Routes:         []Route{},
+						},
+					},
+				},
+			},
+			expectedContains: []string{
+				"@Tag api",
+				"API operations",
+				"@Tag users",
+				"User operations",
+			},
+			expectedNotContains: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var s strings.Builder
+			var wrapperStructs strings.Builder
+			packagesToImport := make(map[string]bool)
+
+			writeGroup(tt.groups, &s, packagesToImport, &wrapperStructs, nil)
+
+			result := s.String()
+
+			for _, expected := range tt.expectedContains {
+				assert.Contains(t, result, expected, "Expected to find: %s", expected)
+			}
+
+			for _, notExpected := range tt.expectedNotContains {
+				assert.NotContains(t, result, notExpected, "Should not find: %s", notExpected)
+			}
+		})
+	}
+}
+
 // Helper functions for tests
 func floatPtr(f float64) *float64 {
 	return &f

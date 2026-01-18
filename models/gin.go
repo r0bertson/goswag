@@ -38,8 +38,18 @@ type GinRouter interface {
 }
 
 type GinGroup interface {
+	GinRouter
+
 	// Group automatically create tags for the swagger documentation.
 	//
 	// Group creates a new router group with prefix and optional group-level middleware.
-	Group(prefix string, h ...gin.HandlerFunc) GinRouter
+	Group(prefix string, h ...gin.HandlerFunc) GinGroup
+
+	// TagDescription sets the description for the tag associated with this group.
+	// The tag name is automatically derived from the group name.
+	TagDescription(description string) GinGroup
+
+	// TagExternalDocs sets external documentation for the tag associated with this group.
+	// The tag name is automatically derived from the group name.
+	TagExternalDocs(url, description string) GinGroup
 }

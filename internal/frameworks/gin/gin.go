@@ -23,6 +23,16 @@ func NewGin(g *gin.Engine, defaultResponses ...models.ReturnType) *ginSwagger {
 	}
 }
 
+// NewGinWithConfig creates a new Gin swagger instance with global configuration.
+// This allows setting host, basePath, schemes, contact, license, etc. globally.
+func NewGinWithConfig(g *gin.Engine, config *models.SwaggerConfig, defaultResponses ...models.ReturnType) *ginSwagger {
+	return &ginSwagger{
+		g:                g,
+		defaultResponses: defaultResponses,
+		config:           config,
+	}
+}
+
 func (s *ginSwagger) Gin() *gin.Engine {
 	return s.g
 }
@@ -31,11 +41,21 @@ func (s *ginSwagger) GenerateSwagger() {
 	generator.GenerateSwagger(toGoSwagRoute(s.routes), toGoSwagGroup(s.groups), s.defaultResponses, s.config)
 }
 
-func (s *ginSwagger) Group(relativePath string, handlers ...gin.HandlerFunc) models.GinRouter {
+func (s *ginSwagger) Group(relativePath string, handlers ...gin.HandlerFunc) models.GinGroup {
 	g := &ginGroup{gg: s.g.Group(relativePath, handlers...), groupName: relativePath}
 	s.groups = append(s.groups, g)
 
 	return g
+}
+
+// TagDescription is a no-op for the top-level router (groups implement this)
+func (s *ginSwagger) TagDescription(description string) models.GinGroup {
+	return s
+}
+
+// TagExternalDocs is a no-op for the top-level router (groups implement this)
+func (s *ginSwagger) TagExternalDocs(url, description string) models.GinGroup {
+	return s
 }
 
 func (s *ginSwagger) Handle(httpMethod, relativePath string, handlers ...gin.HandlerFunc) models.Swagger {
@@ -167,9 +187,12 @@ func (s *ginSwagger) HEAD(relativePath string, handlers ...gin.HandlerFunc) mode
 }
 
 type ginGroup struct {
-	gg        *gin.RouterGroup
-	groupName string
-	routes    []*ginRoute
+	gg              *gin.RouterGroup
+	groupName       string
+	routes          []*ginRoute
+	groups          []*ginGroup
+	tagDescription  string
+	tagExternalDocs *models.ExternalDocs
 }
 
 func (g *ginGroup) Handle(httpMethod, relativePath string, handlers ...gin.HandlerFunc) models.Swagger {
@@ -515,4 +538,21 @@ func (r *ginRoute) Schemes(schemes ...string) models.Swagger {
 func (r *ginRoute) ExternalDocs(url, description string) models.Swagger {
 	r.Route.ExternalDocs = models.NewExternalDocs(url, description)
 	return r
+}
+
+func (g *ginGroup) Group(prefix string, handlers ...gin.HandlerFunc) models.GinGroup {
+	fullPrefix := getFullPath(g.groupName, prefix)
+	subGroup := &ginGroup{gg: g.gg.Group(prefix, handlers...), groupName: fullPrefix}
+	g.groups = append(g.groups, subGroup)
+	return subGroup
+}
+
+func (g *ginGroup) TagDescription(description string) models.GinGroup {
+	g.tagDescription = description
+	return g
+}
+
+func (g *ginGroup) TagExternalDocs(url, description string) models.GinGroup {
+	g.tagExternalDocs = models.NewExternalDocs(url, description)
+	return g
 }

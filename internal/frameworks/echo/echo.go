@@ -36,6 +36,16 @@ func (s *echoSwagger) Group(prefix string, m ...echo.MiddlewareFunc) models.Echo
 	return g
 }
 
+// TagDescription is a no-op for the top-level router (groups implement this)
+func (s *echoSwagger) TagDescription(description string) models.EchoGroup {
+	return s
+}
+
+// TagExternalDocs is a no-op for the top-level router (groups implement this)
+func (s *echoSwagger) TagExternalDocs(url, description string) models.EchoGroup {
+	return s
+}
+
 func (s *echoSwagger) POST(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) models.Swagger {
 	r := s.e.POST(path, h, m...)
 
@@ -149,10 +159,12 @@ func (s *echoSwagger) HEAD(path string, h echo.HandlerFunc, m ...echo.Middleware
 }
 
 type echoGroup struct {
-	g         *echo.Group
-	groupName string
-	groups    []*echoGroup
-	routes    []*echoRoute
+	g              *echo.Group
+	groupName      string
+	groups         []*echoGroup
+	routes         []*echoRoute
+	tagDescription string
+	tagExternalDocs *models.ExternalDocs
 }
 
 // Group creates a new sub-group with prefix and optional sub-group-level middleware.
@@ -482,4 +494,14 @@ func (r *echoRoute) Schemes(schemes ...string) models.Swagger {
 func (r *echoRoute) ExternalDocs(url, description string) models.Swagger {
 	r.Route.ExternalDocs = models.NewExternalDocs(url, description)
 	return r
+}
+
+func (g *echoGroup) TagDescription(description string) models.EchoGroup {
+	g.tagDescription = description
+	return g
+}
+
+func (g *echoGroup) TagExternalDocs(url, description string) models.EchoGroup {
+	g.tagExternalDocs = models.NewExternalDocs(url, description)
+	return g
 }
